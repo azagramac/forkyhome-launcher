@@ -63,6 +63,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true }
+    testOptions {
+        unitTests.all {
+            it.testLogging {
+                events("passed", "skipped", "failed")
+                showExceptions = true
+                showCauses = true
+                showStackTraces = true
+            }
+        }
+    }
     lint {
         abortOnError = false
         checkReleaseBuilds = false

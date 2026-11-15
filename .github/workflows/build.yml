@@ -72,23 +72,74 @@ jobs:
         run: gradle assembleDebug -PversionCode="${{ github.run_number }}" --stacktrace
 
       - name: 📊 Generate Build & Test Summary
+        if: always()
         run: |
-          APK_FILE=$(ls app/build/outputs/apk/debug/*.apk | head -n 1)
-          APK_NAME=$(basename "$APK_FILE")
-          APK_SIZE=$(du -h "$APK_FILE" | cut -f1)
-          APK_SHA256=$(sha256sum "$APK_FILE" | cut -d' ' -f1)
-          TESTS_COUNT=$(grep -h -o 'tests="[0-9]*"' app/build/test-results/testDebugUnitTest/*.xml 2>/dev/null | head -n1 | tr -dc '0-9')
-          {
-            echo "### 🤖 Debug Build & Unit Tests Summary"
-            echo "| Field | Value |"
-            echo "| :--- | :--- |"
-            echo "| 🧪 **Unit Tests** | ✅ Passed (\`${TESTS_COUNT:-OK}\` tests) |"
-            echo "| 📦 **Artifact** | \`$APK_NAME\` |"
-            echo "| 📏 **Size** | \`$APK_SIZE\` |"
-            echo "| 🔢 **Version Code** | \`${{ github.run_number }}\` |"
-            echo "| 🔑 **Signing** | 🔐 Debug Keystore (\`ANDROID_KEYSTORE_DEBUG_BASE64\`) |"
-            echo "| 🔒 **SHA-256** | \`$APK_SHA256\` |"
-          } >> "$GITHUB_STEP_SUMMARY"
+          APK_FILE=$(ls app/build/outputs/apk/debug/*.apk 2>/dev/null | head -n 1)
+          APK_NAME=$([ -n "$APK_FILE" ] && basename "$APK_FILE" || echo "N/A")
+          APK_SIZE=$([ -n "$APK_FILE" ] && du -h "$APK_FILE" | cut -f1 || echo "N/A")
+          APK_SHA256=$([ -n "$APK_FILE" ] && sha256sum "$APK_FILE" | cut -d' ' -f1 || echo "N/A")
+
+          python3 - "$APK_NAME" "$APK_SIZE" "${{ github.run_number }}" "$APK_SHA256" >> "$GITHUB_STEP_SUMMARY" << 'EOF'
+          import glob
+          import sys
+          import xml.etree.ElementTree as ET
+
+          apk_name, apk_size, run_number, apk_sha256 = sys.argv[1:5]
+          xml_files = sorted(glob.glob("app/build/test-results/testDebugUnitTest/*.xml"))
+
+          total_tests = 0
+          total_failures = 0
+          total_skipped = 0
+          total_time_s = 0.0
+          cases = []
+
+          for path in xml_files:
+              try:
+                  root = ET.parse(path).getroot()
+              except Exception:
+                  continue
+              suites = [root] if root.tag == "testsuite" else root.findall("testsuite")
+              for suite in suites:
+                  for tc in suite.findall("testcase"):
+                      name = tc.attrib.get("name", "unknown")
+                      cls = tc.attrib.get("classname", "").split(".")[-1]
+                      t_sec = float(tc.attrib.get("time", "0") or 0.0)
+                      total_tests += 1
+                      total_time_s += t_sec
+                      if tc.find("failure") is not None or tc.find("error") is not None:
+                          status = "❌ Failed"
+                          total_failures += 1
+                      elif tc.find("skipped") is not None:
+                          status = "⏭️ Skipped"
+                          total_skipped += 1
+                      else:
+                          status = "✅ Passed"
+                      cases.append((status, cls, name, t_sec))
+
+          passed = total_tests - total_failures - total_skipped
+          total_ms = total_time_s * 1000.0
+          overall_badge = "✅ Passed" if total_failures == 0 and total_tests > 0 else ("❌ Failed" if total_failures > 0 else "⚠️ No tests")
+
+          print("### 🤖 Debug Build & Unit Tests Summary")
+          print("| Field | Value |")
+          print("| :--- | :--- |")
+          print(f"| 🧪 **Unit Tests** | {overall_badge} (`{passed}/{total_tests}` passed in `{total_ms:.2f} ms`) |")
+          print(f"| 📦 **Artifact** | `{apk_name}` |")
+          print(f"| 📏 **Size** | `{apk_size}` |")
+          print(f"| 🔢 **Version Code** | `{run_number}` |")
+          print("| 🔑 **Signing** | 🔐 Debug Keystore (`ANDROID_KEYSTORE_DEBUG_BASE64`) |")
+          print(f"| 🔒 **SHA-256** | `{apk_sha256}` |")
+          print()
+
+          if cases:
+              print("### 🧪 Unit Tests Breakdown")
+              print("| Status | Suite | Test Case | Time |")
+              print("| :---: | :--- | :--- | ---: |")
+              for status, cls, name, t_sec in cases:
+                  ms = t_sec * 1000.0
+                  time_str = f"{ms:.2f} ms" if ms < 1000 else f"{t_sec:.3f} s"
+                  print(f"| {status} | `{cls}` | `{name}` | `{time_str}` |")
+          EOF
 
       - name: 🧹 Clean up Keystore from Runner
         if: always()
