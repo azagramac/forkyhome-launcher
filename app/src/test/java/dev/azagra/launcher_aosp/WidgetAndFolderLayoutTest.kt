@@ -60,7 +60,6 @@ class WidgetAndFolderLayoutTest {
 
         assertEquals(4, widget.spanX)
         assertEquals(1, widget.spanY)
-        // El icono desplazado debe haberse movido fuera de la fila 0 ocupada por el widget 4x1
         assertTrue(relocatedApp.row >= 1)
     }
 

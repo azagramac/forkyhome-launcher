@@ -170,14 +170,6 @@ fun WidgetView(
     }
 }
 
-/**
- * Marco interactivo de redimensionado y movimiento de widgets estilo LineageOS Trebuchet
- * (`com.android.launcher3.AppWidgetResizeFrame` + `app_widget_resize_frame.xml`):
- * - 4 tiradores en los bordes (izquierda, arriba, derecha, abajo) y soporte de esquinas.
- * - Arrastrar cualquier borde redimensiona el widget celda a celda en tiempo real (`visualizeResizeForDelta`).
- * - Arrastrar desde el interior del marco mueve el widget por el escritorio o entre páginas.
- * - Incluye botón de reconfiguración (si el widget tiene actividad de configuración), eliminar y cerrar.
- */
 @Composable
 fun TrebuchetWidgetResizeFrame(
     item: HomeItem,
@@ -212,7 +204,6 @@ fun TrebuchetWidgetResizeFrame(
     val latestOnEndMoveDrag by rememberUpdatedState(onEndMoveDrag)
     val latestOnDismiss by rememberUpdatedState(onDismiss)
 
-    // Deltas visuales en píxeles mientras se arrastra un tirador (como mDeltaX / mDeltaY en AppWidgetResizeFrame)
     var leftActive by remember { mutableStateOf(false) }
     var rightActive by remember { mutableStateOf(false) }
     var topActive by remember { mutableStateOf(false) }
@@ -244,13 +235,11 @@ fun TrebuchetWidgetResizeFrame(
                     val curTop = curItem.row * chPx
                     val curBottom = (curItem.row + curItem.spanY) * chPx
 
-                    // Comprobar si el toque cae sobre alguno de los 4 bordes/tiradores (igual que beginResizeIfPointInRegion en Trebuchet)
                     val inExpandedBounds =
                         downPos.x in (curLeft - handleHitRadiusPx)..(curRight + handleHitRadiusPx) &&
                             downPos.y in (curTop - handleHitRadiusPx)..(curBottom + handleHitRadiusPx)
 
                     if (!inExpandedBounds) {
-                        // Toque fuera del widget: cerrar el marco de redimensionado
                         latestOnDismiss()
                         return@awaitEachGesture
                     }
@@ -265,7 +254,6 @@ fun TrebuchetWidgetResizeFrame(
                     latestOnPressHoldChange(true)
 
                     if (anyBorder) {
-                        // Modo Redimensionar (AppWidgetResizeFrame)
                         leftActive = hitLeft
                         rightActive = hitRight
                         topActive = hitTop
@@ -312,7 +300,6 @@ fun TrebuchetWidgetResizeFrame(
                                         visualBottomPx = (baseBottom + totalDy).coerceIn(baseTop + chPx * 0.7f, homeRows * chPx)
                                     }
 
-                                    // Calcular nuevas celdas igual que resizeWidgetIfNeeded en AppWidgetResizeFrame.java
                                     val newCol = if (hitLeft) {
                                         (visualLeftPx / cwPx).roundToInt().coerceIn(0, origRightCol - 1)
                                     } else latestItem.col
@@ -358,9 +345,6 @@ fun TrebuchetWidgetResizeFrame(
                             latestOnPressHoldChange(false)
                         }
                     } else {
-                        // Toque en el interior del widget con el marco activo:
-                        // - Si arrastra -> mueve el widget por el escritorio o entre páginas
-                        // - Si solo toca y suelta -> cierra el marco de edición
                         val touchOffsetInWidget = Offset(downPos.x - curLeft, downPos.y - curTop)
                         var totalMove = Offset.Zero
                         var moveStarted = false
@@ -397,13 +381,11 @@ fun TrebuchetWidgetResizeFrame(
                 }
             },
     ) {
-        // Marco visual con los 4 tiradores de redimensionado (Left, Top, Right, Bottom) al estilo Trebuchet
         Box(
             modifier = Modifier
                 .offset { IntOffset(frameLeftPx.roundToInt(), frameTopPx.roundToInt()) }
                 .size(frameWidthDp, frameHeightDp),
         ) {
-            // Borde del marco (widget_resize_frame)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -413,28 +395,24 @@ fun TrebuchetWidgetResizeFrame(
                     .border(2.5.dp, MaterialTheme.colorScheme.primary, WidgetFrameShape),
             )
 
-            // Tirador Izquierdo (widget_resize_left_handle)
             ResizeHandlePill(
                 isVertical = true,
                 isActive = !isResizingGesture || leftActive,
                 modifier = Modifier.align(Alignment.CenterStart),
             )
 
-            // Tirador Derecho (widget_resize_right_handle)
             ResizeHandlePill(
                 isVertical = true,
                 isActive = !isResizingGesture || rightActive,
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
 
-            // Tirador Superior (widget_resize_top_handle)
             ResizeHandlePill(
                 isVertical = false,
                 isActive = !isResizingGesture || topActive,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
 
-            // Tirador Inferior (widget_resize_bottom_handle)
             ResizeHandlePill(
                 isVertical = false,
                 isActive = !isResizingGesture || bottomActive,
@@ -442,7 +420,6 @@ fun TrebuchetWidgetResizeFrame(
             )
         }
 
-        // Barra flotante de acciones del widget (tamaño actual, botón Reconfigurar de Trebuchet, Eliminar y Listo)
         val toolbarHeightPx = with(density) { 48.dp.toPx() }
         val toolbarY = if (frameTopPx >= toolbarHeightPx + 8f) {
             (frameTopPx - toolbarHeightPx - 6f).roundToInt()

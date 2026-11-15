@@ -23,13 +23,6 @@ import kotlin.math.roundToInt
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 
-/**
- * Integración completa con paquetes de iconos estándar (ADW / Nova / Lawnchair / CandyBar / Blueprint / Apex):
- * - Soporta appfilter.xml en res/xml, res/raw o assets/appfilter.xml.
- * - Normaliza nombres de componentes cortos (pkg/.Main -> pkg/pkg.Main) y guarda fallback por paquete.
- * - Soporta iconos dinámicos de calendario (<calendar prefix="..."/>).
- * - Soporta enmascarado (<iconback>, <iconmask>, <iconupon>, <scale>) para apps no incluidas en el pack.
- */
 class IconPacks(private val ctx: Context) {
 
     data class Pack(
@@ -195,25 +188,18 @@ class IconPacks(private val ctx: Context) {
         val fullKey = "${c.packageName}/${c.className}"
         val shortKey = c.flattenToShortString()
 
-        // 1. Icono dinámico de calendario si existe
         val calPrefix = calendarMap[fullKey] ?: calendarMap[shortKey]
         if (calPrefix != null) {
             val day = Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
             loadPackDrawable(r, pkg, resolveCalendarDrawableName(calPrefix, day))?.let { return it }
         }
 
-        // 2. Coincidencia exacta por actividad (completa o abreviada) o fallback por nombre de paquete
         val name = resolvePackDrawableName(c.packageName, c.className, componentMap, packageMap)
             ?: return null
 
         return loadPackDrawable(r, pkg, name)
     }
 
-    /**
-     * Renderiza el icono de la app aplicando el pack de iconos:
-     * - Si el pack tiene un icono específico para la app, usa ese drawable.
-     * - Si no, pero el pack define <iconback>/<iconmask>/<iconupon>, compone el icono original dentro de la máscara del pack.
-     */
     @Synchronized
     fun renderBitmap(c: ComponentName, baseDrawable: Drawable, sizePx: Int): Bitmap? {
         val r = res ?: return null
@@ -232,7 +218,6 @@ class IconPacks(private val ctx: Context) {
             val canvas = Canvas(out)
             val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
-            // Capa de icono original escalada + recortada con iconmask si existe
             val iconLayer = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
             val iconCanvas = Canvas(iconLayer)
             val scaledSize = (sizePx * clampIconPackScale(scaleFactor)).roundToInt().coerceAtLeast(1)
@@ -251,7 +236,6 @@ class IconPacks(private val ctx: Context) {
                 }
             }
 
-            // 1. Fondo del pack (iconback)
             if (iconBacks.isNotEmpty()) {
                 val backName = iconBacks[abs(c.packageName.hashCode()) % iconBacks.size]
                 loadPackDrawable(r, pkg, backName)?.let { backDr ->
@@ -259,10 +243,8 @@ class IconPacks(private val ctx: Context) {
                 }
             }
 
-            // 2. Icono de la app escalado y enmascarado
             canvas.drawBitmap(iconLayer, 0f, 0f, paint)
 
-            // 3. Superposición del pack (iconupon)
             if (iconUpons.isNotEmpty()) {
                 val uponName = iconUpons[abs(c.packageName.hashCode()) % iconUpons.size]
                 loadPackDrawable(r, pkg, uponName)?.let { uponDr ->

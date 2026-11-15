@@ -64,7 +64,6 @@ private val DrawerTopShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp
 private val SearchBarShape = RoundedCornerShape(28.dp)
 private val DrawerCenterOrigin = TransformOrigin(0.5f, 0.35f)
 
-/** Colores del fondo del cajón: sistema (Material You), blanco, negro u oscuro. */
 @Composable
 fun drawerColors(s: LauncherSettings): Triple<Color, Color, Color> {
     val cs = MaterialTheme.colorScheme
@@ -111,7 +110,6 @@ fun AppDrawer(
     val currentHoldingOrDragging by rememberUpdatedState(isHoldingOrDragging)
     val dragSpanPx = remember(heightPx) { (heightPx * 0.68f).coerceAtLeast(1f) }
 
-    // Solo reiniciamos la búsqueda y el scroll cuando el cajón está completamente cerrado y sin arrastre activo
     LaunchedEffect(drawer.isOpen, isDraggingFromDrawer) {
         if (!drawer.isOpen && !isDraggingFromDrawer) {
             focusManager.clearFocus()
@@ -126,7 +124,6 @@ fun AppDrawer(
         filterDrawerApps(apps, query, s.hiddenApps)
     }
 
-    // Conexión de scroll anidado suave para deslizar el cajón al llegar al tope superior de la cuadrícula
     val connection = remember(drawer, dragSpanPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset =
@@ -167,8 +164,6 @@ fun AppDrawer(
             .graphicsLayer {
                 val p = drawer.progress.coerceIn(0f, 1f)
                 val eased = 1f - (1f - p) * (1f - p)
-                // Durante el arrastre de una app fuera del cajón, mantenemos translationY = 0f y scale = 1f
-                // para que las coordenadas del puntero no se desplacen mientras el cajón se desvanece con suavidad
                 if (isDraggingFromDrawer) {
                     translationY = 0f
                     scaleX = 1f
@@ -190,7 +185,6 @@ fun AppDrawer(
             .statusBarsPadding()
             .imePadding()
     ) {
-        // Tirador superior estilo Material You
         Box(
             Modifier
                 .padding(top = 10.dp, bottom = 2.dp)

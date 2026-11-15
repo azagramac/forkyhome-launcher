@@ -68,10 +68,10 @@ class DrawerSearchAndIndexTest {
     fun `buildAlphabetIndexMap maps leading letters and groups numbers under hash`() {
         val indexMap = buildAlphabetIndexMap(sampleCatalog.map { it.label })
 
-        assertEquals(0, indexMap['#']) // "1Password"
-        assertEquals(1, indexMap['C']) // Primera con 'C' es "Calculator" en índice 1
-        assertEquals(4, indexMap['G']) // "Gmail" en índice 4
-        assertEquals(5, indexMap['T']) // "Telegram" en índice 5
-        assertEquals(6, indexMap['W']) // "WhatsApp" en índice 6
+        assertEquals(0, indexMap['#'])
+        assertEquals(1, indexMap['C'])
+        assertEquals(4, indexMap['G'])
+        assertEquals(5, indexMap['T'])
+        assertEquals(6, indexMap['W'])
     }
 }

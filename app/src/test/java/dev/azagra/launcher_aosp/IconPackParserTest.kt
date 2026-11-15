@@ -41,19 +41,16 @@ class IconPackParserTest {
             pkgOut = pkgMap,
         )
 
-        // Coincidencia exacta
         assertEquals(
             "telegram_drawable",
             resolvePackDrawableName("org.telegram.messenger", "org.telegram.ui.LaunchActivity", compMap, pkgMap),
         )
 
-        // Fallback por paquete cuando la app usa un alias o cambia de actividad principal
         assertEquals(
             "telegram_drawable",
             resolvePackDrawableName("org.telegram.messenger", "org.telegram.messenger.DefaultIconAlias", compMap, pkgMap),
         )
 
-        // Paquete inexistente devuelve null
         assertNull(resolvePackDrawableName("com.unknown.app", "com.unknown.app.MainActivity", compMap, pkgMap))
     }
 
@@ -62,7 +59,6 @@ class IconPackParserTest {
         assertEquals("calendar_1", resolveCalendarDrawableName("calendar_", 1))
         assertEquals("calendar_15", resolveCalendarDrawableName("calendar_", 15))
         assertEquals("google_calendar_31", resolveCalendarDrawableName("google_calendar_", 31))
-        // Acota valores fuera de rango 1..31
         assertEquals("cal_1", resolveCalendarDrawableName("cal_", 0))
         assertEquals("cal_31", resolveCalendarDrawableName("cal_", 45))
     }

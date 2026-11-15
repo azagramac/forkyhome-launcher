@@ -51,7 +51,6 @@ data class IconConfig(
     val dark: Boolean = false,
 )
 
-/** Datos de una carpeta en el escritorio: nombre y lista de component keys. */
 @Immutable
 data class FolderPayload(
     val title: String,
@@ -80,7 +79,6 @@ data class FolderPayload(
     }
 }
 
-/** Elemento del escritorio. data = componente (APP), appWidgetId (WIDGET) o FolderPayload (FOLDER). */
 data class HomeItem(
     val id: Int,
     val kind: ItemKind,
@@ -106,7 +104,7 @@ data class HomeItem(
 
 data class LauncherSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val dynamicColor: Boolean = true,          // Material You
+    val dynamicColor: Boolean = true,
     val drawerBg: DrawerBg = DrawerBg.SYSTEM,
     val drawerAlpha: Float = 0.96f,
     val iconPack: String? = null,
@@ -116,7 +114,7 @@ data class LauncherSettings(
     val columns: Int = 5,
     val drawerIconScale: Float = 1.0f,
     val showLabels: Boolean = true,
-    val homePages: Int = 2,
+    val homePages: Int = 1,
     val homeCols: Int = HOME_COLS,
     val homeRows: Int = HOME_ROWS,
     val homeIconScale: Float = 1.0f,
@@ -124,14 +122,15 @@ data class LauncherSettings(
     val lockDesktop: Boolean = false,
     val autoAddNewApps: Boolean = false,
     val swipeDownNotifications: Boolean = true,
+    val doubleTapToSleep: Boolean = false,
+    val showAtAGlance: Boolean = true,
     val hiddenApps: Set<String> = emptySet(),
     val protectedApps: Set<String> = emptySet(),
-    val dock: List<String> = emptyList(),      // máx. DOCK_MAX
+    val dock: List<String> = emptyList(),
     val dockInit: Boolean = false,
     val home: List<HomeItem> = emptyList(),
 )
 
-/** Primer hueco libre (page, col, row) para un elemento de sx × sy celdas. */
 fun findFree(
     items: List<HomeItem>,
     pages: Int,
@@ -160,11 +159,6 @@ fun findFree(
     return null
 }
 
-/**
- * Calcula el tamaño óptimo del icono en dp combinando:
- * 1) un tamaño base adaptado al número de columnas (4 cols -> 60dp, 5 cols -> 54dp, 6 cols -> 48dp)
- * 2) el multiplicador elegido por el usuario (0.80f..1.20f), limitado para que nunca se solapen.
- */
 fun resolveIconSizeDp(cols: Int, scale: Float): Float {
     val base = when {
         cols <= 4 -> 60f
@@ -178,3 +172,24 @@ fun resolveIconSizeDp(cols: Int, scale: Float): Float {
     }
     return (base * scale.coerceIn(0.80f, 1.20f)).coerceIn(38f, maxAllowed)
 }
+
+fun compactHomePages(items: List<HomeItem>): List<HomeItem> {
+    if (items.isEmpty()) return emptyList()
+    val distinctPages = items.map { it.page.coerceAtLeast(0) }.distinct().sorted()
+    val pageMap = distinctPages.withIndex().associate { (newIdx, oldPage) -> oldPage to newIdx }
+    return items.map { item ->
+        val mappedPage = pageMap[item.page.coerceAtLeast(0)] ?: 0
+        if (mappedPage == item.page) item else item.copy(page = mappedPage)
+    }
+}
+
+fun activePageCount(items: List<HomeItem>, isDraggingToWorkspace: Boolean = false): Int {
+    val compacted = compactHomePages(items)
+    val baseCount = if (compacted.isEmpty()) 1 else (compacted.maxOf { it.page } + 1).coerceAtLeast(1)
+    return if (isDraggingToWorkspace && compacted.any { it.page == baseCount - 1 }) {
+        baseCount + 1
+    } else {
+        baseCount
+    }
+}
+

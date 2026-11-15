@@ -8,13 +8,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 
-/** Contenedor sencillo de dependencias (sin Hilt para mantenerlo ligero). */
 class Container(app: Application) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val settings = SettingsStore(app)
     val apps = AppRepository(app, scope)
 
-    /** Se emite al pulsar Home estando ya en el launcher. */
     val homeEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     @Volatile

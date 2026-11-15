@@ -89,6 +89,7 @@ import dev.azagra.launcher_aosp.data.IconShape
 import dev.azagra.launcher_aosp.data.LauncherSettings
 import dev.azagra.launcher_aosp.data.ThemeMode
 import dev.azagra.launcher_aosp.notif.NotificationCounter
+import dev.azagra.launcher_aosp.util.LockScreenService
 import kotlin.math.roundToInt
 
 private val SectionCardShape = RoundedCornerShape(26.dp)
@@ -110,8 +111,10 @@ fun SettingsScreen(
         ctx.packageManager.resolveService(Intent(ctx, NotificationCounter::class.java), 0) != null
     }
     var notifEnabled by remember { mutableStateOf(notificationAccessGranted(ctx)) }
+    var accessibilityEnabled by remember { mutableStateOf(LockScreenService.isEnabled(ctx)) }
     LifecycleResumeEffect(Unit) {
         notifEnabled = notificationAccessGranted(ctx)
+        accessibilityEnabled = LockScreenService.isEnabled(ctx)
         onPauseOrDispose { }
     }
     var alpha by remember(s.drawerAlpha) { mutableFloatStateOf(s.drawerAlpha) }
@@ -160,7 +163,6 @@ fun SettingsScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                // Aviso destacado si aún no es el launcher predeterminado
                 if (!roleManager.isRoleHeld(RoleManager.ROLE_HOME)) {
                     Surface(
                         shape = SectionCardShape,
@@ -194,7 +196,6 @@ fun SettingsScreen(
                     }
                 }
 
-                // 1. APARIENCIA Y TEMA
                 SectionGroup(
                     title = stringResource(R.string.section_appearance),
                     icon = Icons.Default.Star,
@@ -233,7 +234,6 @@ fun SettingsScreen(
                     )
                 }
 
-                // 2. ICONOS Y PAQUETES DE ICONOS
                 SectionGroup(
                     title = stringResource(R.string.section_icons),
                     icon = Icons.Default.Star,
@@ -296,7 +296,6 @@ fun SettingsScreen(
 
                     CardDivider()
 
-                    // Selector visual de Forma de Iconos en cuadrícula de 2 filas (nunca corta el texto)
                     Text(
                         text = stringResource(R.string.settings_icon_shape),
                         style = MaterialTheme.typography.bodyLarge,
@@ -343,16 +342,15 @@ fun SettingsScreen(
                     }
                 }
 
-                // 3. ESCRITORIO (HOME SCREEN)
                 SectionGroup(
                     title = stringResource(R.string.section_home_screen),
                     icon = Icons.Default.Home,
                 ) {
-                    StepperRow(
-                        title = stringResource(R.string.settings_pages),
-                        value = s.homePages,
-                        range = 1..5,
-                        onValueChange = { v -> onChange { it.copy(homePages = v) } },
+                    SwitchRow(
+                        title = stringResource(R.string.settings_at_a_glance),
+                        subtitle = stringResource(R.string.settings_at_a_glance_desc),
+                        checked = s.showAtAGlance,
+                        onChecked = { v -> onChange { it.copy(showAtAGlance = v) } },
                     )
                     CardDivider()
                     StepperRow(
@@ -423,9 +421,32 @@ fun SettingsScreen(
                         checked = s.swipeDownNotifications,
                         onChecked = { v -> onChange { it.copy(swipeDownNotifications = v) } },
                     )
+                    CardDivider()
+                    SwitchRow(
+                        title = stringResource(R.string.settings_double_tap_sleep),
+                        subtitle = stringResource(R.string.settings_double_tap_sleep_desc),
+                        checked = s.doubleTapToSleep,
+                        onChecked = { v -> onChange { it.copy(doubleTapToSleep = v) } },
+                    )
+                    if (s.doubleTapToSleep && !accessibilityEnabled) {
+                        FilledTonalButton(
+                            onClick = {
+                                runCatching {
+                                    ctx.startActivity(
+                                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.settings_grant_accessibility_access))
+                        }
+                    }
                 }
 
-                // 4. CAJÓN DE APLICACIONES
                 SectionGroup(
                     title = stringResource(R.string.section_app_drawer),
                     icon = Icons.Default.Settings,
@@ -517,7 +538,6 @@ fun SettingsScreen(
                     )
                 }
 
-                // 5. PRIVACIDAD (TREBUCHET HIDDEN & PROTECTED APPS)
                 SectionGroup(
                     title = stringResource(R.string.section_privacy),
                     icon = Icons.Default.Lock,
@@ -568,7 +588,6 @@ fun SettingsScreen(
                     }
                 }
 
-                // 6. PIE DE INFORMACIÓN OPEN SOURCE
                 val repoUrl = stringResource(R.string.footer_repo_url)
                 Surface(
                     shape = SectionCardShape,
@@ -619,7 +638,6 @@ fun SettingsScreen(
         }
     }
 
-    // Diálogo de selección de Paquete de Iconos con icono real de cada pack
     if (packDialog) {
         AlertDialog(
             onDismissRequest = { packDialog = false },
@@ -710,10 +728,9 @@ fun SettingsScreen(
         )
     }
 
-    // Diálogo de Apps Ocultas y Protegidas con buscador y pestañas (Ocultas / Protegidas)
     if (privacyDialog) {
         var searchQuery by remember { mutableStateOf("") }
-        var selectedTab by remember { mutableIntStateOf(0) } // 0 = Ocultas, 1 = Protegidas
+        var selectedTab by remember { mutableIntStateOf(0) }
         val uniqueApps = remember(allApps, searchQuery) {
             val base = allApps.distinctBy { it.pkg }
             if (searchQuery.isBlank()) base
@@ -819,7 +836,6 @@ fun SettingsScreen(
     }
 }
 
-/** Cuadrícula visual de formas de iconos en 2 filas (3 arriba + 2 abajo) con figura geométrica y texto completo sin recortes. */
 @Composable
 private fun IconShapeGrid(
     selected: IconShape,
@@ -902,7 +918,6 @@ private fun IconShapeGrid(
     }
 }
 
-/** Cuadrícula 2×2 para elegir el color de fondo del cajón de aplicaciones con muestra visual de color. */
 @Composable
 private fun DrawerBgGrid(
     selected: DrawerBg,

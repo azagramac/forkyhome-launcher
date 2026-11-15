@@ -10,6 +10,8 @@ import dev.azagra.launcher_aosp.data.IconShape
 import dev.azagra.launcher_aosp.data.ItemKind
 import dev.azagra.launcher_aosp.data.LauncherSettings
 import dev.azagra.launcher_aosp.data.ThemeMode
+import dev.azagra.launcher_aosp.data.activePageCount
+import dev.azagra.launcher_aosp.data.compactHomePages
 import dev.azagra.launcher_aosp.data.findFree
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -159,9 +161,26 @@ class LauncherUnitTest {
         assertFalse(defaults.autoAddNewApps)
         assertEquals(IconShape.DEFAULT, defaults.iconShape)
         assertTrue(defaults.swipeDownNotifications)
+        assertFalse(defaults.doubleTapToSleep)
+        assertTrue(defaults.showAtAGlance)
         assertTrue(defaults.hiddenApps.isEmpty())
         assertTrue(defaults.protectedApps.isEmpty())
         assertTrue(defaults.homePages in 1..5)
         assertTrue(DOCK_MAX == 5)
+    }
+
+    @Test
+    fun `compactHomePages eliminates empty gap pages and reindexes contiguously`() {
+        val sparseItems = listOf(
+            HomeItem(1, ItemKind.APP, page = 0, col = 0, row = 0, spanX = 1, spanY = 1, data = "app0"),
+            HomeItem(2, ItemKind.APP, page = 3, col = 1, row = 1, spanX = 1, spanY = 1, data = "app3"),
+            HomeItem(3, ItemKind.WIDGET, page = 5, col = 0, row = 2, spanX = 4, spanY = 2, data = "101"),
+        )
+        val compacted = compactHomePages(sparseItems)
+
+        assertEquals(listOf(0, 1, 2), compacted.map { it.page })
+        assertEquals(1, activePageCount(emptyList(), isDraggingToWorkspace = false))
+        assertEquals(3, activePageCount(compacted, isDraggingToWorkspace = false))
+        assertEquals(4, activePageCount(compacted, isDraggingToWorkspace = true))
     }
 }

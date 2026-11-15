@@ -84,7 +84,6 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
         runCatching { context.startActivity(i) }
     }
 
-    /** Obtiene hasta 4 atajos rápidos (Deep Shortcuts) publicados por la aplicación. */
     fun getShortcuts(pkg: String): List<AppShortcut> = runCatching {
         if (!launcherApps.hasShortcutHostPermission()) return emptyList()
         val q = LauncherApps.ShortcutQuery().apply {
@@ -112,7 +111,6 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
         }
     }
 
-    /** Dock inicial: teléfono, mensajes, navegador y cámara (si existen). */
     fun defaultDock(apps: List<AppInfo>): List<String> {
         val pm = ctx.packageManager
         val intents = listOf(
@@ -156,7 +154,6 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
         return normalBitmap to homeBitmap
     }
 
-    /** Icono temático Material You: capa monocroma teñida con el acento del sistema. */
     private fun themed(d: AdaptiveIconDrawable, dark: Boolean): Drawable? {
         val mono = d.monochrome?.mutate() ?: return null
         val bg = ctx.getColor(if (dark) android.R.color.system_accent1_800 else android.R.color.system_accent1_100)

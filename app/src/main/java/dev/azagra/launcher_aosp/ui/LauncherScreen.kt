@@ -116,8 +116,11 @@ import dev.azagra.launcher_aosp.data.HomeItem
 import dev.azagra.launcher_aosp.data.IconConfig
 import dev.azagra.launcher_aosp.data.ItemKind
 import dev.azagra.launcher_aosp.data.LauncherSettings
+import dev.azagra.launcher_aosp.data.activePageCount
+import dev.azagra.launcher_aosp.data.compactHomePages
 import dev.azagra.launcher_aosp.data.resolveIconSizeDp
 import dev.azagra.launcher_aosp.notif.NotificationCounter
+import dev.azagra.launcher_aosp.util.LockScreenService
 import dev.azagra.launcher_aosp.widgets.WidgetController
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -182,7 +185,6 @@ internal fun resolveGridTarget(
     if (isDropOverDock(session, posInRoot, dockBounds, topMarginPx)) return null
     if (gridBounds.width <= 0f || gridBounds.height <= 0f) return null
 
-    // Si arrastramos un WIDGET, calculamos la celda superior-izquierda teniendo en cuenta su spanX × spanY
     val homeSrc = session.source as? DragSource.Home
     if (homeSrc != null && homeSrc.item.kind == ItemKind.WIDGET) {
         val cw = gridBounds.width / cols
@@ -203,19 +205,12 @@ internal fun resolveGridTarget(
     val row = exactRow.toInt().coerceIn(0, rows - 1)
     val fracX = exactCol - col
     val fracY = exactRow - row
-    // Si viene del cajón o carpeta, soltar sobre otro icono siempre agrupa en carpeta;
-    // en escritorio usamos un margen amplio (15%..85%) para crear carpeta fácilmente
     val inCenter = session.source is DragSource.Drawer ||
         session.source is DragSource.Folder ||
         (fracX in 0.15f..0.85f && fracY in 0.15f..0.85f)
     return Triple(col, row, inCenter)
 }
 
-/**
- * Coloca o redimensiona un widget en `(targetPage, targetCol, targetRow, targetSpanX, targetSpanY)` al estilo Trebuchet:
- * - Impide solapar con otro widget de la misma página.
- * - Si el área nueva cubre iconos o carpetas 1×1, los desplaza automáticamente a las celdas libres más cercanas.
- */
 internal fun placeOrResizeWidget(
     home: List<HomeItem>,
     widgetId: Int,
@@ -301,7 +296,6 @@ internal fun placeOrResizeWidget(
     }
 }
 
-/** Elimina una app de una carpeta; si queda 1 sola app la convierte en icono normal, y si queda vacía la borra. */
 internal fun removeAppFromFolderInList(
     home: List<HomeItem>,
     folderId: Int,
@@ -349,7 +343,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
 
     val drawer = remember { DrawerState(scope) }
     val drawerVisible by remember { derivedStateOf { drawer.progress > 0f } }
-    val pagerState = rememberPagerState { s.homePages }
 
     var showSettings by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -358,7 +351,22 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     var resizingWidgetId by remember { mutableStateOf<Int?>(null) }
     var openFolderId by remember { mutableStateOf<Int?>(null) }
 
-    // Autenticación de apps protegidas (Trebuchet Protected Apps)
+    var gridBoundsInRoot by remember { mutableStateOf(Rect.Zero) }
+    var dockBoundsInRoot by remember { mutableStateOf(Rect.Zero) }
+    var isHoldingItem by remember { mutableStateOf(false) }
+    var dragSession by remember { mutableStateOf<DragSession?>(null) }
+    var dragPosInRoot by remember { mutableStateOf(Offset.Zero) }
+
+    val pageCount = remember(s.home, dragSession) {
+        activePageCount(s.home, isDraggingToWorkspace = dragSession != null)
+    }
+    val pagerState = rememberPagerState { pageCount }
+    LaunchedEffect(pageCount) {
+        if (pagerState.currentPage >= pageCount) {
+            pagerState.animateScrollToPage((pageCount - 1).coerceAtLeast(0))
+        }
+    }
+
     val keyguardManager = remember { ctx.getSystemService(KeyguardManager::class.java) }
     var pendingProtectedAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     val authLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
@@ -367,13 +375,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         }
         pendingProtectedAction = null
     }
-
-    // Coordenadas en tiempo real para Drag & Drop entre Cajón, Escritorio, Carpetas y Dock
-    var gridBoundsInRoot by remember { mutableStateOf(Rect.Zero) }
-    var dockBoundsInRoot by remember { mutableStateOf(Rect.Zero) }
-    var isHoldingItem by remember { mutableStateOf(false) }
-    var dragSession by remember { mutableStateOf<DragSession?>(null) }
-    var dragPosInRoot by remember { mutableStateOf(Offset.Zero) }
 
     val homeCols = s.homeCols.coerceIn(4, 6)
     val homeRows = s.homeRows.coerceIn(4, 7)
@@ -387,7 +388,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             if (it.dockInit) it else it.copy(dock = repo.defaultDock(apps), dockInit = true)
         }
     }
-    // Auto-añadir nuevas apps instaladas al escritorio si el ajuste de Trebuchet está activo
     LaunchedEffect(s.autoAddNewApps, s.lockDesktop) {
         if (s.autoAddNewApps && !s.lockDesktop) {
             repo.newPackages.collect { pkg ->
@@ -418,7 +418,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     BackHandler(enabled = resizingWidgetId != null) { resizingWidgetId = null }
     BackHandler(enabled = drawerVisible && !showSettings && openFolderId == null && resizingWidgetId == null) { drawer.animateTo(0f) }
 
-    // ---- helpers ----
     fun toast(m: String) = Toast.makeText(ctx, m, Toast.LENGTH_SHORT).show()
     fun edit(block: (LauncherSettings) -> LauncherSettings) { scope.launch { store.update(block) } }
     fun checkUnlocked(): Boolean {
@@ -480,7 +479,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         add(MenuAction(ctx.getString(R.string.action_app_info), Icons.Default.Info) { details(app.pkg) })
         add(MenuAction(ctx.getString(R.string.action_uninstall), Icons.Default.Delete) { uninstall(app.pkg) })
     }
-    // En el cajón, al estilo Trebuchet, las apps se arrastran directamente al escritorio o dock sin botones en el menú
     fun drawerActions(app: AppInfo): List<MenuAction> = buildList {
         add(MenuAction(ctx.getString(R.string.action_hide_app), Icons.Default.Close) {
             edit { st -> st.copy(hiddenApps = st.hiddenApps + app.pkg) }
@@ -489,7 +487,10 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     }
     fun homeActions(item: HomeItem, app: AppInfo) = listOf(
         MenuAction(ctx.getString(R.string.action_remove_from_home), Icons.Default.Close) {
-            if (checkUnlocked()) edit { st -> st.copy(home = st.home.filter { it.id != item.id }) }
+            if (checkUnlocked()) edit { st ->
+                val nextHome = compactHomePages(st.home.filter { it.id != item.id })
+                st.copy(home = nextHome, homePages = activePageCount(nextHome))
+            }
         },
     ) + common(app)
     fun dockActions(app: AppInfo) = listOf(
@@ -498,7 +499,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         },
     ) + common(app)
 
-    // Leemos los estados remember directamente dentro de finishDrag() para evitar cualquier captura obsoleta
     fun finishDrag() {
         val session = dragSession ?: return
         val dropPos = dragPosInRoot
@@ -538,7 +538,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 topMarginPx = dockMarginPx,
             )
 
-            when {
+            val nextState = when {
                 dockSlot != null -> {
                     when (val src = session.source) {
                         is DragSource.Dock -> {
@@ -645,7 +645,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                             when (val src = session.source) {
                                 is DragSource.Home -> {
                                     if (occupant != null && occupant.id != src.item.id) {
-                                        // Si soltamos una APP sobre otra APP o CARPETA -> Crear / Añadir a Carpeta
                                         if (src.item.kind == ItemKind.APP && (occupant.kind == ItemKind.FOLDER || inCenter)) {
                                             val updatedOccupant = if (occupant.kind == ItemKind.FOLDER) {
                                                 val payload = FolderPayload.decode(occupant.data)
@@ -664,7 +663,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                                     .map { if (it.id == occupant.id) updatedOccupant else it }
                                             )
                                         } else {
-                                            // Intercambiar posiciones entre ambos elementos del escritorio
                                             st.copy(
                                                 home = st.home.map {
                                                     when (it.id) {
@@ -676,7 +674,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                             )
                                         }
                                     } else {
-                                        // Mover a celda vacía
                                         st.copy(
                                             home = st.home.map {
                                                 if (it.id == src.item.id) it.copy(page = currentPage, col = destCol, row = destRow) else it
@@ -808,6 +805,8 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 }
                 else -> st
             }
+            val compactedHome = compactHomePages(nextState.home)
+            nextState.copy(home = compactedHome, homePages = activePageCount(compactedHome))
         }
     }
 
@@ -819,7 +818,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         resolveDockSlot(activeDrag, dragPosInRoot, dockBoundsInRoot, s.dock.size, dockMarginPx)
     } else null
 
-    // ---- UI ----
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wPx = with(density) { maxWidth.toPx() }
         val hPx = with(density) { maxHeight.toPx() }
@@ -827,24 +825,22 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         val edgeZonePx = with(density) { 38.dp.toPx() }
         var downwardPullPx by remember { mutableStateOf(0f) }
 
-        // Cambio automático de página al mantener un icono arrastrado junto al borde izquierdo/derecho (estilo Trebuchet)
         val edgeDir = when {
             activeDrag == null || targetDockSlot != null -> 0
             dragPosInRoot.x > 0f && dragPosInRoot.x < edgeZonePx && pagerState.currentPage > 0 -> -1
-            dragPosInRoot.x > (wPx - edgeZonePx) && pagerState.currentPage < s.homePages - 1 -> 1
+            dragPosInRoot.x > (wPx - edgeZonePx) && pagerState.currentPage < pageCount - 1 -> 1
             else -> 0
         }
-        LaunchedEffect(edgeDir, pagerState.currentPage) {
+        LaunchedEffect(edgeDir, pagerState.currentPage, pageCount) {
             if (edgeDir != 0) {
                 delay(450)
-                val next = (pagerState.currentPage + edgeDir).coerceIn(0, s.homePages - 1)
+                val next = (pagerState.currentPage + edgeDir).coerceIn(0, pageCount - 1)
                 if (next != pagerState.currentPage) {
                     pagerState.animateScrollToPage(next)
                 }
             }
         }
 
-        // Escritorio: transición fluida de escala, opacidad y paralaje al abrir/cerrar el cajón
         Column(
             Modifier
                 .fillMaxSize()
@@ -885,12 +881,9 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 userScrollEnabled = !isDraggingOrHolding && openFolderId == null && resizingWidgetId == null,
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
-                    .onGloballyPositioned { gridBoundsInRoot = it.boundsInRoot() },
+                    .fillMaxWidth(),
                 beyondViewportPageCount = 1,
             ) { page ->
-                // Leemos dragSession y dragPosInRoot dentro del ámbito de HorizontalPager para que
-                // la celda resaltada se actualice en tiempo real a medida que movemos el dedo
                 val pageDrag = dragSession
                 val highlightedCell = if (pageDrag != null && page == pagerState.currentPage) {
                     resolveGridTarget(
@@ -914,7 +907,13 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                     homeCols = homeCols,
                     homeRows = homeRows,
                     widgets = widgets,
+                    isDragging = pageDrag != null,
                     gridOriginInRoot = gridBoundsInRoot.topLeft,
+                    onGridBoundsChanged = { bounds ->
+                        if (page == pagerState.currentPage) {
+                            gridBoundsInRoot = bounds
+                        }
+                    },
                     draggedHomeItem = draggedHomeItem,
                     resizingWidgetId = if (pageDrag == null) resizingWidgetId else null,
                     highlightedCell = highlightedCell,
@@ -929,6 +928,21 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                     },
                     onTapEmpty = {
                         resizingWidgetId = null
+                    },
+                    onDoubleTapEmpty = {
+                        resizingWidgetId = null
+                        if (s.doubleTapToSleep) {
+                            val locked = LockScreenService.lockScreen(ctx)
+                            if (!locked) {
+                                toast(ctx.getString(R.string.toast_enable_accessibility_lock))
+                                runCatching {
+                                    ctx.startActivity(
+                                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                }
+                            }
+                        }
                     },
                     actionsFor = ::homeActions,
                     onLaunch = ::openApp,
@@ -961,7 +975,8 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                 rows = homeRows,
                             )
                             if (updated != null) {
-                                edit { st -> st.copy(home = updated) }
+                                val compacted = compactHomePages(updated)
+                                edit { st -> st.copy(home = compacted, homePages = activePageCount(compacted)) }
                                 true
                             } else false
                         }
@@ -970,7 +985,10 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                         if (checkUnlocked()) {
                             resizingWidgetId = null
                             item.data.toIntOrNull()?.let { widgets.delete(it) }
-                            edit { st -> st.copy(home = st.home.filter { it.id != item.id }) }
+                            edit { st ->
+                                val compacted = compactHomePages(st.home.filter { it.id != item.id })
+                                st.copy(home = compacted, homePages = activePageCount(compacted))
+                            }
                         }
                     },
                     onItemHoldChange = { holding -> isHoldingItem = holding },
@@ -991,13 +1009,12 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 )
             }
 
-            // Indicadores de página estilo Material You (píldora animada)
             Row(
                 Modifier.align(Alignment.CenterHorizontally).padding(vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                repeat(s.homePages) { i ->
+                repeat(pageCount) { i ->
                     val sel = i == pagerState.currentPage
                     val dotWidth by animateDpAsState(if (sel) 20.dp else 8.dp, label = "pageDot")
                     Box(
@@ -1013,7 +1030,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 }
             }
 
-            // Dock Material You (máx. 5) con soporte de reordenación por arrastre
             val dockBorderColor = if (targetDockSlot != null) MaterialTheme.colorScheme.primary else Color.Transparent
             val dockIconSize = remember(s.homeIconScale) {
                 (52f * s.homeIconScale.coerceIn(0.85f, 1.15f)).coerceIn(42f, 58f).dp
@@ -1072,8 +1088,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             }
         }
 
-        // Vista flotante de Carpeta Abierta estilo LineageOS Trebuchet (user_folder_icon_normalized):
-        // Cuadrícula de iconos arriba y nombre editable abajo, sin AlertDialog ni LazyVerticalGrid que colapse.
         val openFolderItem = remember(s.home, openFolderId) {
             s.home.firstOrNull { it.id == openFolderId && it.kind == ItemKind.FOLDER }
         }
@@ -1107,8 +1121,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        // Si el usuario empieza a arrastrar una app fuera de la carpeta, ocultamos la tarjeta
-                        // manteniendo vivas las coordenadas del gesto hasta que suelte el dedo en el escritorio/dock
                         alpha = if (isDraggingFromFolder) 0f else 1f
                     }
                     .background(Color.Black.copy(alpha = if (isDraggingFromFolder) 0f else 0.38f))
@@ -1138,7 +1150,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        // Contenido de aplicaciones de la carpeta (folder_content en Trebuchet)
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1174,7 +1185,8 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                                                 if (!checkUnlocked()) return@MenuAction
                                                                 val remainingCount = payload.apps.count { it != app.key }
                                                                 edit { st ->
-                                                                    st.copy(home = removeAppFromFolderInList(st.home, openFolderItem.id, app.key))
+                                                                    val nextHome = compactHomePages(removeAppFromFolderInList(st.home, openFolderItem.id, app.key))
+                                                                    st.copy(home = nextHome, homePages = activePageCount(nextHome))
                                                                 }
                                                                 if (remainingCount <= 1) openFolderId = null
                                                             }
@@ -1210,7 +1222,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
                         )
 
-                        // Pie de carpeta con título editable centrado (folder_footer / folder_name en Trebuchet)
                         BasicTextField(
                             value = folderTitle,
                             onValueChange = { newTitle ->
@@ -1240,7 +1251,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             }
         }
 
-        // Menú emergente flotante Material You al mantener pulsado un hueco vacío del escritorio
         if (showMenu && activeDrag == null) {
             val dpOffset = with(density) {
                 DpOffset(menuOffsetInRoot.x.toDp(), menuOffsetInRoot.y.toDp())
@@ -1305,8 +1315,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             }
         }
 
-        // Mantenemos AppDrawer montado y trasladado por GPU (graphicsLayer).
-        // Al arrastrar una app del cajón sin soltar, el cajón se cierra con animación suave y deja colocarla en el escritorio o dock.
         AppDrawer(
             apps = apps,
             counts = counts,
@@ -1330,7 +1338,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             onEndAppDrag = { finishDrag() },
         )
 
-        // Capa flotante del icono o widget mientras se arrastra (por encima del escritorio, carpetas y cajón)
         if (activeDrag != null) {
             val draggedWidgetItem = (activeDrag.source as? DragSource.Home)?.item?.takeIf { it.kind == ItemKind.WIDGET }
             if (activeDrag.previewApp != null) {
@@ -1427,12 +1434,15 @@ private fun HomePage(
     homeCols: Int,
     homeRows: Int,
     widgets: WidgetController,
+    isDragging: Boolean,
     gridOriginInRoot: Offset,
+    onGridBoundsChanged: (Rect) -> Unit,
     draggedHomeItem: HomeItem?,
     resizingWidgetId: Int?,
     highlightedCell: Triple<Int, Int, Boolean>?,
     onLongPressEmpty: (Offset) -> Unit,
     onTapEmpty: () -> Unit,
+    onDoubleTapEmpty: () -> Unit,
     actionsFor: (HomeItem, AppInfo) -> List<MenuAction>,
     onLaunch: (AppInfo) -> Unit,
     onOpenFolder: (HomeItem) -> Unit,
@@ -1448,31 +1458,68 @@ private fun HomePage(
     val pageItems = remember(items, page) { items.filter { it.page == page } }
     val draggedHomeItemId = draggedHomeItem?.id
 
-    BoxWithConstraints(
-        Modifier.fillMaxSize().pointerInput(pageItems, homeCols, homeRows) {
-            detectTapGestures(
-                onTap = { onTapEmpty() },
-                onLongPress = { offset ->
-                    // Verificamos que el toque haya caído en una celda realmente vacía
-                    val col = ((offset.x / size.width) * homeCols).toInt().coerceIn(0, homeCols - 1)
-                    val row = ((offset.y / size.height) * homeRows).toInt().coerceIn(0, homeRows - 1)
-                    val occupied = pageItems.any {
-                        col in it.col until (it.col + it.spanX) && row in it.row until (it.row + it.spanY)
-                    }
-                    if (!occupied) {
-                        onLongPressEmpty(offset)
-                    }
-                },
-            )
-        }
-    ) {
-        val cw = maxWidth / homeCols
-        val ch = maxHeight / homeRows
-        val homeIconSize = remember(homeCols, s.homeIconScale) {
-            resolveIconSizeDp(homeCols, s.homeIconScale).dp
+    Column(Modifier.fillMaxSize()) {
+        if (page == 0 && s.showAtAGlance) {
+            AtAGlanceHeader()
         }
 
-        // Indicador visual Material You de la celda o área destino (multi-celda si es un widget, círculo si creará carpeta)
+        BoxWithConstraints(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .onGloballyPositioned { onGridBoundsChanged(it.boundsInRoot()) }
+                .pointerInput(pageItems, homeCols, homeRows, s.doubleTapToSleep) {
+                    detectTapGestures(
+                        onTap = { onTapEmpty() },
+                        onDoubleTap = { offset ->
+                            val col = ((offset.x / size.width) * homeCols).toInt().coerceIn(0, homeCols - 1)
+                            val row = ((offset.y / size.height) * homeRows).toInt().coerceIn(0, homeRows - 1)
+                            val occupied = pageItems.any {
+                                col in it.col until (it.col + it.spanX) && row in it.row until (it.row + it.spanY)
+                            }
+                            if (!occupied) {
+                                onDoubleTapEmpty()
+                            }
+                        },
+                        onLongPress = { offset ->
+                            val col = ((offset.x / size.width) * homeCols).toInt().coerceIn(0, homeCols - 1)
+                            val row = ((offset.y / size.height) * homeRows).toInt().coerceIn(0, homeRows - 1)
+                            val occupied = pageItems.any {
+                                col in it.col until (it.col + it.spanX) && row in it.row until (it.row + it.spanY)
+                            }
+                            if (!occupied) {
+                                onLongPressEmpty(offset)
+                            }
+                        },
+                    )
+                }
+        ) {
+            val cw = maxWidth / homeCols
+            val ch = maxHeight / homeRows
+            val homeIconSize = remember(homeCols, s.homeIconScale) {
+                resolveIconSizeDp(homeCols, s.homeIconScale).dp
+            }
+
+            if (pageItems.isEmpty() && page > 0 && isDragging) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(20.dp)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.28f))
+                        .border(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.55f), RoundedCornerShape(28.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.new_page_drop_hint),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                    )
+                }
+            }
+
         if (highlightedCell != null) {
             val (hCol, hRow, inCenter) = highlightedCell
             val isDraggingWidget = draggedHomeItem?.kind == ItemKind.WIDGET
@@ -1591,7 +1638,6 @@ private fun HomePage(
             }
         }
 
-        // Marco interactivo de redimensionado y movimiento de Widgets estilo LineageOS Trebuchet (AppWidgetResizeFrame)
         val resizingWidget = pageItems.firstOrNull { it.id == resizingWidgetId && it.kind == ItemKind.WIDGET }
         if (resizingWidget != null && !s.lockDesktop) {
             val appWidgetId = resizingWidget.data.toIntOrNull()
@@ -1621,6 +1667,7 @@ private fun HomePage(
                 onEndMoveDrag = onEndItemDrag,
                 onDismiss = onDismissWidgetResize,
             )
+        }
         }
     }
 }

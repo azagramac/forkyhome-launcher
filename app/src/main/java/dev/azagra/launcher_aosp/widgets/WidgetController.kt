@@ -20,13 +20,6 @@ const val WIDGET_HOST_ID = 1024
 private const val REQ_CONFIGURE = 4242
 private const val REQ_RECONFIGURE = 4243
 
-/**
- * Vista de widget estilo Trebuchet (`LauncherAppWidgetHostView` + `CheckLongPressHelper`):
- * - Permite que los toques rápidos funcionen normalmente sobre los botones internos del widget.
- * - Al mantener pulsado (~300ms), cancela el toque interno del widget, bloquea la interceptación
- *   del Pager/Drawer padre y permite arrastrar el widget directamente sin soltar el dedo o
- *   soltarlo para dejar abierto el marco de redimensionado (`AppWidgetResizeFrame`).
- */
 class LongPressHostView(ctx: Context) : AppWidgetHostView(ctx) {
     var onLongPressStart: ((touchOffsetInWidget: Offset, rawPos: Offset) -> Unit)? = null
     var onDragMove: ((rawDelta: Offset) -> Unit)? = null
@@ -46,7 +39,6 @@ class LongPressHostView(ctx: Context) : AppWidgetHostView(ctx) {
         dragging = false
         parent?.requestDisallowInterceptTouchEvent(true)
         performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-        // Cancelamos el toque en las subvistas del RemoteViews para que no disparen su PendingIntent al soltar
         val now = SystemClock.uptimeMillis()
         val cancelEvent = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, downX, downY, 0)
         super.dispatchTouchEvent(cancelEvent)
@@ -66,7 +58,6 @@ class LongPressHostView(ctx: Context) : AppWidgetHostView(ctx) {
                 downY = ev.y
                 downRawX = ev.rawX
                 downRawY = ev.rawY
-                // Factor 0.75f idéntico a CheckLongPressHelper.DEFAULT_LONG_PRESS_TIMEOUT_FACTOR en Trebuchet
                 val timeout = (ViewConfiguration.getLongPressTimeout() * 0.75f).toLong()
                 postDelayed(longPressRunnable, timeout)
                 super.dispatchTouchEvent(ev)
@@ -120,10 +111,6 @@ class LauncherWidgetHost(ctx: Context) : AppWidgetHost(ctx, WIDGET_HOST_ID) {
     ): AppWidgetHostView = LongPressHostView(context)
 }
 
-/**
- * Flujo completo de añadir y reconfigurar widgets (estilo Trebuchet):
- * reservar id → pedir permiso de bind → pantalla de configuración (si la tiene) → avisar a la UI.
- */
 class WidgetController(
     private val activity: ComponentActivity,
     private val onAdded: (id: Int, info: AppWidgetProviderInfo) -> Unit,
@@ -154,13 +141,11 @@ class WidgetController(
         }
     }
 
-    /** Comprueba si el widget soporta ser reconfigurado (como `info.isReconfigurable()` en Trebuchet). */
     fun canReconfigure(appWidgetId: Int): Boolean {
         val info = manager.getAppWidgetInfo(appWidgetId) ?: return false
         return info.configure != null
     }
 
-    /** Lanza la actividad de configuración del widget ya colocado en el escritorio. */
     fun reconfigure(appWidgetId: Int) {
         val info = manager.getAppWidgetInfo(appWidgetId) ?: return
         if (info.configure != null) {

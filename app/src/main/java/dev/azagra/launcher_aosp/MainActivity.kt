@@ -50,7 +50,6 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            // null hasta que DataStore carga: evita pisar el dock guardado con valores por defecto
             val s: LauncherSettings? by container.settings.flow.collectAsStateWithLifecycle(initialValue = null)
             s?.let { st ->
                 LauncherTheme(st.themeMode, st.dynamicColor) {
@@ -72,7 +71,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Home pulsado estando ya en el launcher: cierra cajón/ajustes y vuelve a la primera página
         if (intent.action == Intent.ACTION_MAIN) container.homeEvents.tryEmit(Unit)
     }
 

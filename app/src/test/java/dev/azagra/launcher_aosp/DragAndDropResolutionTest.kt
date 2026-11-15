@@ -76,7 +76,6 @@ class DragAndDropResolutionTest {
     @Test
     fun `resolveDockSlot maps horizontal finger coordinate to target dock index`() {
         val session = DragSession(DragSource.Drawer(sampleApp), sampleApp)
-        // Con 4 elementos actuales en el dock, insertar desde el cajón divide el dock en 5 ranuras (0..4)
         assertEquals(0, resolveDockSlot(session, Offset(20f, 550f), dockBounds, currentDockSize = 4, topMarginPx = 20f))
         assertEquals(2, resolveDockSlot(session, Offset(200f, 550f), dockBounds, currentDockSize = 4, topMarginPx = 20f))
         assertEquals(4, resolveDockSlot(session, Offset(390f, 550f), dockBounds, currentDockSize = 4, topMarginPx = 20f))
@@ -87,7 +86,6 @@ class DragAndDropResolutionTest {
         val drawerSession = DragSession(DragSource.Drawer(sampleApp), sampleApp)
         val folderSession = DragSession(DragSource.Folder(folderId = 9, app = sampleApp), sampleApp)
 
-        // Incluso cerca del borde de la celda (ej. x=5f, y=5f en celda 0,0), si viene del cajón o carpeta inCenter es true
         val targetFromDrawer = resolveGridTarget(drawerSession, Offset(5f, 5f), gridBounds, dockBounds, cols = 4, rows = 5, topMarginPx = 20f)
         val targetFromFolder = resolveGridTarget(folderSession, Offset(5f, 5f), gridBounds, dockBounds, cols = 4, rows = 5, topMarginPx = 20f)
 
@@ -100,12 +98,9 @@ class DragAndDropResolutionTest {
         val homeItem = HomeItem(1, ItemKind.APP, 0, 0, 0, 1, 1, sampleApp.key)
         val homeSession = DragSession(DragSource.Home(homeItem), sampleApp)
 
-        // En una cuadrícula 4x5 sobre 400x500, cada celda mide 100x100.
-        // Centro de la celda (1, 2) -> (150, 250) -> inCenter = true
         val centerTarget = resolveGridTarget(homeSession, Offset(150f, 250f), gridBounds, dockBounds, cols = 4, rows = 5, topMarginPx = 20f)
         assertEquals(Triple(1, 2, true), centerTarget)
 
-        // Esquina extrema de la celda (1, 2) -> (102, 202) -> inCenter = false (intercambiar en vez de agrupar)
         val edgeTarget = resolveGridTarget(homeSession, Offset(102f, 202f), gridBounds, dockBounds, cols = 4, rows = 5, topMarginPx = 20f)
         assertEquals(Triple(1, 2, false), edgeTarget)
     }
@@ -119,9 +114,6 @@ class DragAndDropResolutionTest {
             widgetTouchOffset = Offset(50f, 50f),
         )
 
-        // Intentar arrastrar un widget 3x2 hasta el extremo inferior-derecho (390, 490) en una cuadrícula 4x5:
-        // La columna máxima permitida para spanX=3 en 4 columnas es col=1 (4 - 3 = 1).
-        // La fila máxima permitida para spanY=2 en 5 filas es row=3 (5 - 2 = 3).
         val target = resolveGridTarget(widgetSession, Offset(390f, 490f), gridBounds, dockBounds, cols = 4, rows = 5, topMarginPx = 20f)
         assertNotNull(target)
         assertEquals(1, target!!.first)

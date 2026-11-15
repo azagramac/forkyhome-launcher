@@ -5,7 +5,6 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import kotlinx.coroutines.flow.MutableStateFlow
 
-/** Cuenta notificaciones activas por paquete para pintar el número en el icono. */
 class NotificationCounter : NotificationListenerService() {
 
     companion object {

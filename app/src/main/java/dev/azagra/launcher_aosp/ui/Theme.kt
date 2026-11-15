@@ -26,7 +26,6 @@ fun resolveDark(mode: ThemeMode): Boolean = when (mode) {
     ThemeMode.DARK -> true
 }
 
-/** Material You: con dynamic=true los colores salen del fondo de pantalla. */
 @Composable
 fun LauncherTheme(mode: ThemeMode, dynamic: Boolean, content: @Composable () -> Unit) {
     val dark = resolveDark(mode)

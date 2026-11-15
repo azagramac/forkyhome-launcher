@@ -132,7 +132,6 @@ fun AppIcon(
         label = "iconAlpha",
     )
 
-    // Garantiza que pointerInput siempre invoque los callbacks con el estado más reciente de la pantalla
     val currentOnClick by rememberUpdatedState(onClick)
     val currentActionsProvider by rememberUpdatedState(actionsProvider)
     val currentOnPressHoldChange by rememberUpdatedState(onPressHoldChange)
@@ -160,7 +159,6 @@ fun AppIcon(
                             currentOnClick()
                         }
                     } else {
-                        // Consumimos el evento para que HomePage NO abra un segundo menú flotante de fondo
                         longPress.consume()
                         currentEvent.changes.forEach { it.consume() }
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -324,7 +322,6 @@ fun AppIcon(
     }
 }
 
-/** Icono de Carpeta en el escritorio con vista previa 2×2 estilo Trebuchet / Material You. */
 @Composable
 fun FolderIcon(
     title: String,

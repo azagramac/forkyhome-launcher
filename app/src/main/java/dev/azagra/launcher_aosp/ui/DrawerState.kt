@@ -11,10 +11,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-/**
- * Controla la apertura y cierre del cajón de aplicaciones (0f = cerrado, 1f = abierto)
- * con física de muelle suave e histéresis direccional estilo Pixel Launcher / Trebuchet.
- */
 @Stable
 class DrawerState(private val scope: CoroutineScope) {
     var progress by mutableFloatStateOf(0f)
@@ -39,7 +35,6 @@ class DrawerState(private val scope: CoroutineScope) {
         startProgress = clamped
     }
 
-    /** velocity en "progreso por segundo"; positivo = abriendo. */
     fun settle(velocity: Float) {
         val threshold = if (startProgress < 0.5f) 0.25f else 0.75f
         val target = when {

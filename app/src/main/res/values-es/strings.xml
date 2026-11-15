@@ -1,10 +1,8 @@
 <resources>
     <string name="app_name">AOSP Launcher</string>
 
-    <!-- Drawer -->
     <string name="search_apps">Buscar aplicaciones</string>
 
-    <!-- Context menu & actions -->
     <string name="action_app_info">Información</string>
     <string name="action_uninstall">Desinstalar</string>
     <string name="action_add_to_home">Añadir al escritorio</string>
@@ -18,12 +16,10 @@
     <string name="toast_no_space_on_home">No hay sitio en el escritorio</string>
     <string name="toast_desktop_locked">El escritorio está bloqueado</string>
 
-    <!-- Folders -->
     <string name="folder_default_name">Carpeta</string>
     <string name="folder_rename_hint">Nombre de la carpeta</string>
     <string name="action_remove_from_folder">Sacar de la carpeta</string>
 
-    <!-- Home long-press menu & dialogs -->
     <string name="menu_widgets">Widgets</string>
     <string name="menu_wallpaper">Fondo de pantalla</string>
     <string name="menu_launcher_settings">Ajustes del launcher</string>
@@ -37,7 +33,6 @@
     <string name="action_close">Cerrar</string>
     <string name="action_back">Atrás</string>
 
-    <!-- Settings -->
     <string name="settings_title">Ajustes</string>
     <string name="section_appearance">Apariencia</string>
     <string name="theme_system">Sistema</string>
@@ -86,9 +81,15 @@
     <string name="settings_auto_add_apps">Añadir nuevas apps al escritorio</string>
     <string name="settings_swipe_down_notif">Deslizar abajo para notificaciones</string>
     <string name="settings_swipe_down_notif_desc">Desliza hacia abajo en el escritorio para abrir el panel de notificaciones</string>
+    <string name="settings_double_tap_sleep">Doble toque para apagar pantalla</string>
+    <string name="settings_double_tap_sleep_desc">Toca dos veces en un hueco vacío del escritorio para bloquear la pantalla</string>
+    <string name="settings_grant_accessibility_access">Activar servicio de accesibilidad</string>
+    <string name="toast_enable_accessibility_lock">Activa AOSP Launcher en Accesibilidad para poder bloquear la pantalla</string>
+    <string name="settings_at_a_glance">De un vistazo (At a Glance)</string>
+    <string name="settings_at_a_glance_desc">Muestra fecha, próxima alarma y batería en la parte superior de la página principal</string>
+    <string name="new_page_drop_hint">Suelta aquí para crear una nueva página</string>
     <string name="settings_set_default_launcher">Establecer como launcher predeterminado</string>
 
-    <!-- Hidden & Protected apps (Trebuchet Privacy) -->
     <string name="section_privacy">Privacidad (Trebuchet)</string>
     <string name="settings_hidden_protected_apps">Aplicaciones ocultas y protegidas</string>
     <string name="settings_hidden_protected_desc">%1$d ocultas · %2$d protegidas</string>
@@ -98,7 +99,6 @@
     <string name="auth_protected_app_title">Aplicación protegida</string>
     <string name="auth_protected_app_desc">Verifica tu identidad para continuar</string>
 
-    <!-- Footer / About -->
     <string name="footer_version_build">Versión %1$s (Build %2$d)</string>
     <string name="footer_open_source">Código abierto en GitHub</string>
 </resources>

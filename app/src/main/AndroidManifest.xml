@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Permiso normal para desplegar la barra de notificaciones al deslizar hacia abajo en el escritorio -->
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
-
-    <!-- Visibilidad de todas las apps lanzables y packs de iconos sin requerir QUERY_ALL_PACKAGES -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -73,7 +70,6 @@
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-            <!-- Permite lanzarlo desde Android Studio -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

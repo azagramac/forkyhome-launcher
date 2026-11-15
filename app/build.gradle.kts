@@ -4,10 +4,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// applicationId no admite guiones, por eso el paquete usa "_"; el APK se llama con el nombre del proyecto.
 val appId = "dev.azagra.launcher_aosp"
 val apkBaseName = "dev.azagra.launcher-aosp"
-// El workflow pasa -PversionName=1.2.3 -PversionCode=N
 val appVersionName = (findProperty("versionName") as String?) ?: "0.1.0"
 val appVersionCode = (findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
 
@@ -17,7 +15,7 @@ android {
 
     defaultConfig {
         applicationId = appId
-        minSdk = 35            // Android 15
+        minSdk = 35
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
@@ -27,8 +25,6 @@ android {
         localeFilters += listOf("en", "es")
     }
 
-    // Firma personalizada: si hay KEYSTORE_FILE en el entorno se usa tanto en debug como en release;
-    // si no, se firma con la clave debug por defecto.
     val keystorePath = System.getenv("KEYSTORE_FILE")
     signingConfigs {
         if (keystorePath != null && File(keystorePath).exists()) {
@@ -46,7 +42,6 @@ android {
         debug {
             signingConfigs.findByName("release")?.let {
                 signingConfig = it
-                // En CI evitamos android:debuggable="true" para que Play Protect no bloquee el APK al instalarlo manualmente
                 isDebuggable = false
             }
         }
@@ -89,9 +84,6 @@ android {
         }
     }
 
-    // Nombre del APK:
-    //   debug   -> dev.azagra.launcher-aosp-{versionName}-{versionCode}.apk
-    //   release -> dev.azagra.launcher-aosp-{versionName}.apk
     applicationVariants.all {
         val isDebug = buildType.name == "debug"
         outputs.all {

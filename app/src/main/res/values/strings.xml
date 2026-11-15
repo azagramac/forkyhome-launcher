@@ -1,10 +1,8 @@
 <resources>
     <string name="app_name">AOSP Launcher</string>
 
-    <!-- Drawer -->
     <string name="search_apps">Search apps</string>
 
-    <!-- Context menu & actions -->
     <string name="action_app_info">App info</string>
     <string name="action_uninstall">Uninstall</string>
     <string name="action_add_to_home">Add to home screen</string>
@@ -18,12 +16,10 @@
     <string name="toast_no_space_on_home">No space left on home screen</string>
     <string name="toast_desktop_locked">Home screen is locked</string>
 
-    <!-- Folders -->
     <string name="folder_default_name">Folder</string>
     <string name="folder_rename_hint">Folder name</string>
     <string name="action_remove_from_folder">Remove from folder</string>
 
-    <!-- Home long-press menu & dialogs -->
     <string name="menu_widgets">Widgets</string>
     <string name="menu_wallpaper">Wallpaper</string>
     <string name="menu_launcher_settings">Launcher settings</string>
@@ -37,7 +33,6 @@
     <string name="action_close">Close</string>
     <string name="action_back">Back</string>
 
-    <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="section_appearance">Appearance</string>
     <string name="theme_system">System</string>
@@ -86,9 +81,15 @@
     <string name="settings_auto_add_apps">Add new apps to home screen</string>
     <string name="settings_swipe_down_notif">Swipe down for notifications</string>
     <string name="settings_swipe_down_notif_desc">Pull down anywhere on the home screen to open the notification shade</string>
+    <string name="settings_double_tap_sleep">Double-tap to sleep</string>
+    <string name="settings_double_tap_sleep_desc">Double-tap an empty area on the home screen to turn off and lock the screen</string>
+    <string name="settings_grant_accessibility_access">Enable accessibility service</string>
+    <string name="toast_enable_accessibility_lock">Enable AOSP Launcher in Accessibility settings to lock the screen</string>
+    <string name="settings_at_a_glance">At a Glance</string>
+    <string name="settings_at_a_glance_desc">Show date, next alarm, and battery status at the top of the main home screen</string>
+    <string name="new_page_drop_hint">Drop here to create a new page</string>
     <string name="settings_set_default_launcher">Set as default launcher</string>
 
-    <!-- Hidden & Protected apps (Trebuchet Privacy) -->
     <string name="section_privacy">Privacy (Trebuchet)</string>
     <string name="settings_hidden_protected_apps">Hidden &amp; protected apps</string>
     <string name="settings_hidden_protected_desc">%1$d hidden · %2$d protected</string>
@@ -98,7 +99,6 @@
     <string name="auth_protected_app_title">Protected application</string>
     <string name="auth_protected_app_desc">Verify your identity to continue</string>
 
-    <!-- Footer / About -->
     <string name="footer_version_build">Version %1$s (Build %2$d)</string>
     <string name="footer_open_source">Open Source on GitHub</string>
     <string name="footer_repo_url" translatable="false">https://github.com/azagramac/aosp-launcher</string>

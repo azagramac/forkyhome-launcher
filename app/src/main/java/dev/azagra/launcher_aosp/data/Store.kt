@@ -35,6 +35,8 @@ private object K {
     val lockDesktop = booleanPreferencesKey("lock_desktop")
     val autoAddApps = booleanPreferencesKey("auto_add_apps")
     val swipeDownNotif = booleanPreferencesKey("swipe_down_notif")
+    val doubleTapSleep = booleanPreferencesKey("double_tap_sleep")
+    val atAGlance = booleanPreferencesKey("at_a_glance")
     val hiddenApps = stringSetPreferencesKey("hidden_apps")
     val protectedApps = stringSetPreferencesKey("protected_apps")
     val dock = stringPreferencesKey("dock")
@@ -50,49 +52,72 @@ class SettingsStore(private val ctx: Context) {
         ctx.store.edit { writeSettingsToPreferences(it, block(readSettingsFromPreferences(it))) }
     }
 
-    /** Añade un elemento al primer hueco libre. Devuelve false si no hay sitio. */
     suspend fun addHomeItem(kind: ItemKind, data: String, sx: Int, sy: Int, page: Int): Boolean {
         var ok = false
         update { s ->
-            val slot = findFree(s.home, s.homePages, page, sx, sy, s.homeCols, s.homeRows)
-            if (slot == null) s else {
-                ok = true
-                val id = (s.home.maxOfOrNull { it.id } ?: 0) + 1
-                s.copy(home = s.home + HomeItem(id, kind, slot.first, slot.second, slot.third, sx, sy, data))
-            }
+            val compacted = compactHomePages(s.home)
+            val currentPages = activePageCount(compacted, isDraggingToWorkspace = false)
+            val safeSx = sx.coerceIn(1, s.homeCols)
+            val safeSy = sy.coerceIn(1, s.homeRows)
+            val slot = findFree(
+                items = compacted,
+                pages = currentPages,
+                startPage = page.coerceIn(0, currentPages - 1),
+                sx = safeSx,
+                sy = safeSy,
+                cols = s.homeCols,
+                rows = s.homeRows,
+            ) ?: Triple(
+                if (compacted.isEmpty()) 0 else currentPages,
+                0,
+                0,
+            )
+            ok = true
+            val id = (compacted.maxOfOrNull { it.id } ?: 0) + 1
+            val updatedHome = compactHomePages(
+                compacted + HomeItem(id, kind, slot.first, slot.second, slot.third, safeSx, safeSy, data)
+            )
+            s.copy(home = updatedHome, homePages = activePageCount(updatedHome))
         }
         return ok
     }
 }
 
-internal fun readSettingsFromPreferences(p: Preferences) = LauncherSettings(
-    themeMode = p[K.theme].toEnum(ThemeMode.SYSTEM),
-    dynamicColor = p[K.dynamic] ?: true,
-    drawerBg = p[K.drawerBg].toEnum(DrawerBg.SYSTEM),
-    drawerAlpha = p[K.drawerAlpha] ?: 0.96f,
-    iconPack = p[K.iconPack],
-    iconShape = p[K.iconShape].toEnum(IconShape.DEFAULT),
-    themedIcons = p[K.themed] ?: false,
-    badgeNumbers = p[K.badges] ?: true,
-    columns = p[K.columns] ?: 5,
-    drawerIconScale = (p[K.drawerIconScale] ?: 1.0f).coerceIn(0.80f, 1.20f),
-    showLabels = p[K.labels] ?: true,
-    homePages = p[K.pages] ?: 2,
-    homeCols = (p[K.homeCols] ?: HOME_COLS).coerceIn(4, 6),
-    homeRows = (p[K.homeRows] ?: HOME_ROWS).coerceIn(4, 7),
-    homeIconScale = (p[K.homeIconScale] ?: 1.0f).coerceIn(0.80f, 1.20f),
-    showHomeLabels = p[K.homeLabels] ?: true,
-    lockDesktop = p[K.lockDesktop] ?: false,
-    autoAddNewApps = p[K.autoAddApps] ?: false,
-    swipeDownNotifications = p[K.swipeDownNotif] ?: true,
-    hiddenApps = p[K.hiddenApps] ?: emptySet(),
-    protectedApps = p[K.protectedApps] ?: emptySet(),
-    dock = p[K.dock]?.lines()?.filter { it.isNotBlank() } ?: emptyList(),
-    dockInit = p[K.dockInit] ?: false,
-    home = p[K.home]?.lines()?.mapNotNull { HomeItem.decode(it) } ?: emptyList(),
-)
+internal fun readSettingsFromPreferences(p: Preferences): LauncherSettings {
+    val rawHome = p[K.home]?.lines()?.mapNotNull { HomeItem.decode(it) } ?: emptyList()
+    val compactedHome = compactHomePages(rawHome)
+    return LauncherSettings(
+        themeMode = p[K.theme].toEnum(ThemeMode.SYSTEM),
+        dynamicColor = p[K.dynamic] ?: true,
+        drawerBg = p[K.drawerBg].toEnum(DrawerBg.SYSTEM),
+        drawerAlpha = p[K.drawerAlpha] ?: 0.96f,
+        iconPack = p[K.iconPack],
+        iconShape = p[K.iconShape].toEnum(IconShape.DEFAULT),
+        themedIcons = p[K.themed] ?: false,
+        badgeNumbers = p[K.badges] ?: true,
+        columns = p[K.columns] ?: 5,
+        drawerIconScale = (p[K.drawerIconScale] ?: 1.0f).coerceIn(0.80f, 1.20f),
+        showLabels = p[K.labels] ?: true,
+        homePages = activePageCount(compactedHome),
+        homeCols = (p[K.homeCols] ?: HOME_COLS).coerceIn(4, 6),
+        homeRows = (p[K.homeRows] ?: HOME_ROWS).coerceIn(4, 7),
+        homeIconScale = (p[K.homeIconScale] ?: 1.0f).coerceIn(0.80f, 1.20f),
+        showHomeLabels = p[K.homeLabels] ?: true,
+        lockDesktop = p[K.lockDesktop] ?: false,
+        autoAddNewApps = p[K.autoAddApps] ?: false,
+        swipeDownNotifications = p[K.swipeDownNotif] ?: true,
+        doubleTapToSleep = p[K.doubleTapSleep] ?: false,
+        showAtAGlance = p[K.atAGlance] ?: true,
+        hiddenApps = p[K.hiddenApps] ?: emptySet(),
+        protectedApps = p[K.protectedApps] ?: emptySet(),
+        dock = p[K.dock]?.lines()?.filter { it.isNotBlank() } ?: emptyList(),
+        dockInit = p[K.dockInit] ?: false,
+        home = compactedHome,
+    )
+}
 
 internal fun writeSettingsToPreferences(p: MutablePreferences, s: LauncherSettings) {
+    val compactedHome = compactHomePages(s.home)
     p[K.theme] = s.themeMode.name
     p[K.dynamic] = s.dynamicColor
     p[K.drawerBg] = s.drawerBg.name
@@ -105,7 +130,7 @@ internal fun writeSettingsToPreferences(p: MutablePreferences, s: LauncherSettin
     p[K.columns] = s.columns
     p[K.drawerIconScale] = s.drawerIconScale
     p[K.labels] = s.showLabels
-    p[K.pages] = s.homePages
+    p[K.pages] = activePageCount(compactedHome)
     p[K.homeCols] = s.homeCols
     p[K.homeRows] = s.homeRows
     p[K.homeIconScale] = s.homeIconScale
@@ -113,11 +138,13 @@ internal fun writeSettingsToPreferences(p: MutablePreferences, s: LauncherSettin
     p[K.lockDesktop] = s.lockDesktop
     p[K.autoAddApps] = s.autoAddNewApps
     p[K.swipeDownNotif] = s.swipeDownNotifications
+    p[K.doubleTapSleep] = s.doubleTapToSleep
+    p[K.atAGlance] = s.showAtAGlance
     p[K.hiddenApps] = s.hiddenApps
     p[K.protectedApps] = s.protectedApps
     p[K.dock] = s.dock.take(DOCK_MAX).joinToString("\n")
     p[K.dockInit] = s.dockInit
-    p[K.home] = s.home.joinToString("\n") { it.encode() }
+    p[K.home] = compactedHome.joinToString("\n") { it.encode() }
 }
 
 private inline fun <reified E : Enum<E>> String?.toEnum(default: E): E =
