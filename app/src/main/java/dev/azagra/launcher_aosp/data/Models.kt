@@ -19,9 +19,23 @@ class AppInfo(
     val label: String,
     val icon: ImageBitmap,
     val homeIcon: ImageBitmap = icon,
+    val pkg: String = component.packageName ?: "",
+    val key: String = component.flattenToString() ?: "",
 ) {
-    val key: String = component.flattenToString()
-    val pkg: String get() = component.packageName
+    constructor(
+        pkg: String,
+        cls: String,
+        label: String,
+        icon: ImageBitmap,
+        homeIcon: ImageBitmap = icon,
+    ) : this(
+        component = ComponentName(pkg, cls),
+        label = label,
+        icon = icon,
+        homeIcon = homeIcon,
+        pkg = pkg,
+        key = "$pkg/$cls",
+    )
 }
 
 @Immutable
