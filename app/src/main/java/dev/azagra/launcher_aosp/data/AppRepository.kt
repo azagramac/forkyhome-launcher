@@ -95,17 +95,24 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
         packs.load(c.pack)
         return launcherApps.getActivityList(null, Process.myUserHandle())
             .filter { it.componentName.packageName != ctx.packageName }
-            .map { AppInfo(it.componentName, it.label.toString(), render(it, c)) }
+            .map { info ->
+                val (normalIcon, homeIcon) = render(info, c)
+                AppInfo(info.componentName, info.label.toString(), normalIcon, homeIcon)
+            }
             .sortedBy { it.label.lowercase() }
     }
 
-    private fun render(info: LauncherActivityInfo, c: IconConfig): ImageBitmap {
+    private fun render(info: LauncherActivityInfo, c: IconConfig): Pair<ImageBitmap, ImageBitmap> {
         val fromPack = packs.icon(info.componentName)
         val base: Drawable = fromPack ?: info.getIcon(0)
-        val d: Drawable =
-            if (fromPack == null && c.themed && base is AdaptiveIconDrawable) themed(base, c.dark) ?: base
-            else base
-        return d.toBitmap(ICON_PX, ICON_PX).asImageBitmap()
+        val normalBitmap = base.toBitmap(ICON_PX, ICON_PX).asImageBitmap()
+        val homeBitmap =
+            if (fromPack == null && c.themed && base is AdaptiveIconDrawable) {
+                themed(base, c.dark)?.toBitmap(ICON_PX, ICON_PX)?.asImageBitmap() ?: normalBitmap
+            } else {
+                normalBitmap
+            }
+        return normalBitmap to homeBitmap
     }
 
     /** Icono temático Material You: capa monocroma teñida con el acento del sistema. */

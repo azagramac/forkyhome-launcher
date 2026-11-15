@@ -18,7 +18,7 @@ import org.junit.Test
 class LauncherUnitTest {
 
     @Test
-    fun `HomeItem encode y decode conserva todos los campos`() {
+    fun `HomeItem encode and decode preserves all fields`() {
         val original = HomeItem(
             id = 7,
             kind = ItemKind.APP,
@@ -37,7 +37,7 @@ class LauncherUnitTest {
     }
 
     @Test
-    fun `HomeItem decode soporta caracteres pipe dentro del campo data`() {
+    fun `HomeItem decode supports pipe characters inside data field`() {
         val original = HomeItem(
             id = 12,
             kind = ItemKind.WIDGET,
@@ -53,14 +53,14 @@ class LauncherUnitTest {
     }
 
     @Test
-    fun `HomeItem decode devuelve null ante cadenas invalidas`() {
+    fun `HomeItem decode returns null for invalid strings`() {
         assertNull(HomeItem.decode(""))
-        assertNull(HomeItem.decode("invalido"))
+        assertNull(HomeItem.decode("invalid"))
         assertNull(HomeItem.decode("1|UNKNOWN|0|0|0|1|1|data"))
     }
 
     @Test
-    fun `findFree encuentra la primera celda libre en un escritorio vacio`() {
+    fun `findFree finds first free cell on empty home screen`() {
         val slot = findFree(
             items = emptyList(),
             pages = 2,
@@ -72,7 +72,7 @@ class LauncherUnitTest {
     }
 
     @Test
-    fun `findFree salta celdas ocupadas y coloca en el siguiente hueco`() {
+    fun `findFree skips occupied cells and places item in next slot`() {
         val existing = listOf(
             HomeItem(1, ItemKind.APP, page = 0, col = 0, row = 0, spanX = 1, spanY = 1, data = "app1"),
             HomeItem(2, ItemKind.APP, page = 0, col = 1, row = 0, spanX = 1, spanY = 1, data = "app2"),
@@ -82,18 +82,16 @@ class LauncherUnitTest {
     }
 
     @Test
-    fun `findFree pasa a la siguiente pagina cuando la pagina actual no tiene hueco suficiente`() {
-        // Ocupamos la página 0 con un widget que deja menos de 4 columnas libres por fila
+    fun `findFree advances to next page when current page has insufficient space`() {
         val existing = (0 until HOME_ROWS).map { r ->
             HomeItem(r + 1, ItemKind.APP, page = 0, col = 0, row = r, spanX = 1, spanY = 1, data = "app$r")
         }
-        // Un widget de 4 columnas de ancho no cabe en la página 0, debe ir a la página 1
         val slot = findFree(existing, pages = 2, startPage = 0, sx = HOME_COLS, sy = 2)
         assertEquals(Triple(1, 0, 0), slot)
     }
 
     @Test
-    fun `findFree devuelve null cuando todas las paginas estan llenas`() {
+    fun `findFree returns null when all pages are full`() {
         val fullItem = HomeItem(
             id = 1,
             kind = ItemKind.WIDGET,
@@ -109,7 +107,7 @@ class LauncherUnitTest {
     }
 
     @Test
-    fun `LauncherSettings tiene valores por defecto coherentes`() {
+    fun `LauncherSettings has valid default values`() {
         val defaults = LauncherSettings()
         assertEquals(ThemeMode.SYSTEM, defaults.themeMode)
         assertTrue(defaults.dynamicColor)

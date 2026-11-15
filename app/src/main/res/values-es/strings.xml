@@ -49,7 +49,7 @@
     <string name="icon_pack_default">Predeterminado</string>
     <string name="icon_pack_default_system">Predeterminado (sistema)</string>
     <string name="settings_themed_icons">Iconos temáticos</string>
-    <string name="settings_themed_icons_desc">Usa la capa monocroma con el color de Material You</string>
+    <string name="settings_themed_icons_desc">Usa la capa monocroma con el color de Material You en escritorio y dock</string>
     <string name="settings_badge_numbers">Número en notificaciones</string>
     <string name="settings_badge_numbers_desc">Muestra cuántas notificaciones tiene cada app</string>
     <string name="settings_grant_notification_access">Conceder acceso a notificaciones</string>
@@ -59,4 +59,8 @@
     <string name="section_home_screen">Escritorio</string>
     <string name="settings_pages">Páginas</string>
     <string name="settings_set_default_launcher">Establecer como launcher predeterminado</string>
+
+    <!-- Footer / About -->
+    <string name="footer_version_build">Versión %1$s (Build %2$d)</string>
+    <string name="footer_open_source">Código abierto en GitHub</string>
 </resources>

@@ -49,7 +49,7 @@
     <string name="icon_pack_default">Default</string>
     <string name="icon_pack_default_system">Default (system)</string>
     <string name="settings_themed_icons">Themed icons</string>
-    <string name="settings_themed_icons_desc">Use monochrome icon layer tinted with Material You</string>
+    <string name="settings_themed_icons_desc">Use monochrome icon layer tinted with Material You on home screen and dock</string>
     <string name="settings_badge_numbers">Notification count</string>
     <string name="settings_badge_numbers_desc">Show how many notifications each app has</string>
     <string name="settings_grant_notification_access">Grant notification access</string>
@@ -59,4 +59,9 @@
     <string name="section_home_screen">Home screen</string>
     <string name="settings_pages">Pages</string>
     <string name="settings_set_default_launcher">Set as default launcher</string>
+
+    <!-- Footer / About -->
+    <string name="footer_version_build">Version %1$s (Build %2$d)</string>
+    <string name="footer_open_source">Open Source on GitHub</string>
+    <string name="footer_repo_url" translatable="false">https://github.com/azagramac/aosp-launcher</string>
 </resources>

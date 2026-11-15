@@ -13,7 +13,12 @@ enum class DrawerBg { SYSTEM, WHITE, BLACK, DARK }
 enum class ItemKind { APP, WIDGET }
 
 @Immutable
-class AppInfo(val component: ComponentName, val label: String, val icon: ImageBitmap) {
+class AppInfo(
+    val component: ComponentName,
+    val label: String,
+    val icon: ImageBitmap,
+    val homeIcon: ImageBitmap = icon,
+) {
     val key: String = component.flattenToString()
     val pkg: String get() = component.packageName
 }

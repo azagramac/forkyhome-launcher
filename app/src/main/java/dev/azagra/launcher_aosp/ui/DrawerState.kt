@@ -11,13 +11,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-/** progress: 0 = cerrado, 1 = abierto. Se arrastra con el dedo y se asienta con un muelle. */
+/** progress: 0 = cerrado, 1 = abierto. Se arrastra con el dedo y se asienta con un muelle rápido sin rebote. */
 @Stable
 class DrawerState(private val scope: CoroutineScope) {
     var progress by mutableFloatStateOf(0f)
         private set
 
-    val isOpen: Boolean get() = progress > 0f
+    val isOpen: Boolean get() = progress > 0.001f
     private var job: Job? = null
 
     fun drag(delta: Float) {
@@ -27,22 +27,27 @@ class DrawerState(private val scope: CoroutineScope) {
 
     /** velocity en "progreso por segundo"; positivo = abriendo. */
     fun settle(velocity: Float) {
-        animateTo(
-            when {
-                velocity > 0.6f -> 1f
-                velocity < -0.6f -> 0f
-                progress > 0.5f -> 1f
-                else -> 0f
-            }
-        )
+        val target = when {
+            velocity > 0.45f -> 1f
+            velocity < -0.45f -> 0f
+            progress > 0.45f -> 1f
+            else -> 0f
+        }
+        animateTo(target, velocity)
     }
 
-    fun animateTo(target: Float) {
+    fun animateTo(target: Float, initialVelocity: Float = 0f) {
         job?.cancel()
+        if (progress == target) return
         job = scope.launch {
             animate(
-                progress, target,
-                animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow),
+                initialValue = progress,
+                targetValue = target,
+                initialVelocity = initialVelocity.coerceIn(-8f, 8f),
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
             ) { v, _ -> progress = v }
         }
     }
