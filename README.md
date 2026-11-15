@@ -1,4 +1,4 @@
-# AOSP Launcher (`dev.azagra.launcher_aosp`)
+# AOSP Launcher
 
 Launcher Android moderno, ligero y fluido escrito en **Kotlin + Jetpack Compose**, inspirado en **LineageOS Trebuchet** y diseñado con **Material 3 / Material You**.
 
@@ -56,43 +56,3 @@ Launcher Android moderno, ligero y fluido escrito en **Kotlin + Jetpack Compose*
 
 ### 🌐 Idiomas
 - **Inglés** (`values/`) por defecto y **Español** (`values-es/`).
-
----
-
-## 🛠️ Compilar en local
-
-1. Clona el repositorio y ábrelo en **Android Studio** (con JDK 17 y Android SDK 36):
-   ```bash
-   git clone https://github.com/azagramac/aosp-launcher.git
-   cd aosp-launcher
-   ```
-2. Ejecuta los tests unitarios o genera el APK desde terminal:
-   ```bash
-   ./gradlew testDebugUnitTest
-   ./gradlew assembleDebug
-   ```
-3. Para compilar una versión Release optimizada con R8:
-   ```bash
-   ./gradlew assembleRelease
-   ```
-4. Instala el APK en un dispositivo o emulador con **Android 15 (API 35)** o superior y establécelo como launcher predeterminado desde **Ajustes del Launcher**.
-
----
-
-## 🚀 CI/CD con GitHub Actions
-
-El proyecto incluye dos flujos automatizados en `.github/workflows/`:
-
-1. **Build & Test (Debug)** (`.github/workflows/build.yml`):
-   - Se ejecuta en cada `push` y `pull_request` a `main`/`master`.
-   - Ejecuta `gradle testDebugUnitTest` y genera el artefacto firmado `dev.azagra.launcher-aosp-{versionName}-{run_number}.apk`.
-2. **Release Build** (`.github/workflows/release.yml`):
-   - Se dispara al publicar un tag `v*` (ej. `git tag v0.1.0 && git push origin v0.1.0`) o manualmente con `workflow_dispatch`.
-   - Compila el APK Release minificado (`dev.azagra.launcher-aosp-{versionName}.apk`) y publica automáticamente la GitHub Release.
-
-### Secretos recomendados en GitHub Actions
-Para mantener una firma consistente entre actualizaciones sin bloqueos de Play Protect, configura en **Settings → Secrets and variables → Actions**:
-- `ANDROID_KEYSTORE_DEBUG_BASE64` / `KEYSTORE_BASE64`: tu keystore en Base64 (`base64 -w0 release.jks`).
-- `KEYSTORE_PASSWORD`: contraseña del almacén de claves.
-- `KEY_ALIAS`: alias de la clave.
-- `KEY_PASSWORD`: contraseña de la clave.

@@ -7,45 +7,109 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.geometry.Offset
 import kotlin.math.hypot
 
 const val WIDGET_HOST_ID = 1024
 private const val REQ_CONFIGURE = 4242
+private const val REQ_RECONFIGURE = 4243
 
-/** Vista de widget con detección de pulsación larga (para poder quitarlo). */
+/**
+ * Vista de widget estilo Trebuchet (`LauncherAppWidgetHostView` + `CheckLongPressHelper`):
+ * - Permite que los toques rápidos funcionen normalmente sobre los botones internos del widget.
+ * - Al mantener pulsado (~300ms), cancela el toque interno del widget, bloquea la interceptación
+ *   del Pager/Drawer padre y permite arrastrar el widget directamente sin soltar el dedo o
+ *   soltarlo para dejar abierto el marco de redimensionado (`AppWidgetResizeFrame`).
+ */
 class LongPressHostView(ctx: Context) : AppWidgetHostView(ctx) {
-    var onLongPress: (() -> Unit)? = null
+    var onLongPressStart: ((touchOffsetInWidget: Offset, rawPos: Offset) -> Unit)? = null
+    var onDragMove: ((rawDelta: Offset) -> Unit)? = null
+    var onDragFinish: (() -> Unit)? = null
+    var onLongPressRelease: (() -> Unit)? = null
+
     private var fired = false
+    private var dragging = false
     private var downX = 0f
     private var downY = 0f
-    private val longPress = Runnable {
+    private var downRawX = 0f
+    private var downRawY = 0f
+
+    private val longPressRunnable = Runnable {
+        if (!isAttachedToWindow) return@Runnable
         fired = true
+        dragging = false
+        parent?.requestDisallowInterceptTouchEvent(true)
         performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-        onLongPress?.invoke()
+        // Cancelamos el toque en las subvistas del RemoteViews para que no disparen su PendingIntent al soltar
+        val now = SystemClock.uptimeMillis()
+        val cancelEvent = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, downX, downY, 0)
+        super.dispatchTouchEvent(cancelEvent)
+        cancelEvent.recycle()
+
+        onLongPressStart?.invoke(Offset(downX, downY), Offset(downRawX, downRawY))
     }
 
-    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        val slop = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                removeCallbacks(longPressRunnable)
                 fired = false
+                dragging = false
                 downX = ev.x
                 downY = ev.y
-                postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
+                downRawX = ev.rawX
+                downRawY = ev.rawY
+                // Factor 0.75f idéntico a CheckLongPressHelper.DEFAULT_LONG_PRESS_TIMEOUT_FACTOR en Trebuchet
+                val timeout = (ViewConfiguration.getLongPressTimeout() * 0.75f).toLong()
+                postDelayed(longPressRunnable, timeout)
+                super.dispatchTouchEvent(ev)
+                return true
             }
-            MotionEvent.ACTION_MOVE ->
-                if (hypot(ev.x - downX, ev.y - downY) > ViewConfiguration.get(context).scaledTouchSlop)
-                    removeCallbacks(longPress)
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> removeCallbacks(longPress)
+            MotionEvent.ACTION_MOVE -> {
+                val dx = ev.rawX - downRawX
+                val dy = ev.rawY - downRawY
+                val dist = hypot(dx, dy)
+                if (!fired) {
+                    if (dist > slop) {
+                        removeCallbacks(longPressRunnable)
+                    }
+                    return super.dispatchTouchEvent(ev)
+                }
+                parent?.requestDisallowInterceptTouchEvent(true)
+                if (!dragging && dist > slop * 0.4f) {
+                    dragging = true
+                }
+                if (dragging) {
+                    onDragMove?.invoke(Offset(dx, dy))
+                }
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                removeCallbacks(longPressRunnable)
+                if (fired) {
+                    parent?.requestDisallowInterceptTouchEvent(false)
+                    val wasDragging = dragging
+                    fired = false
+                    dragging = false
+                    if (wasDragging) {
+                        onDragFinish?.invoke()
+                    } else {
+                        onLongPressRelease?.invoke()
+                    }
+                    return true
+                }
+                return super.dispatchTouchEvent(ev)
+            }
         }
-        return fired
+        return super.dispatchTouchEvent(ev)
     }
-
-    override fun onTouchEvent(ev: MotionEvent): Boolean = fired || super.onTouchEvent(ev)
 }
 
 class LauncherWidgetHost(ctx: Context) : AppWidgetHost(ctx, WIDGET_HOST_ID) {
@@ -57,8 +121,8 @@ class LauncherWidgetHost(ctx: Context) : AppWidgetHost(ctx, WIDGET_HOST_ID) {
 }
 
 /**
- * Flujo completo de añadir un widget: reservar id → pedir permiso de bind →
- * pantalla de configuración (si la tiene) → avisar a la UI.
+ * Flujo completo de añadir y reconfigurar widgets (estilo Trebuchet):
+ * reservar id → pedir permiso de bind → pantalla de configuración (si la tiene) → avisar a la UI.
  */
 class WidgetController(
     private val activity: ComponentActivity,
@@ -90,6 +154,22 @@ class WidgetController(
         }
     }
 
+    /** Comprueba si el widget soporta ser reconfigurado (como `info.isReconfigurable()` en Trebuchet). */
+    fun canReconfigure(appWidgetId: Int): Boolean {
+        val info = manager.getAppWidgetInfo(appWidgetId) ?: return false
+        return info.configure != null
+    }
+
+    /** Lanza la actividad de configuración del widget ya colocado en el escritorio. */
+    fun reconfigure(appWidgetId: Int) {
+        val info = manager.getAppWidgetInfo(appWidgetId) ?: return
+        if (info.configure != null) {
+            runCatching {
+                host.startAppWidgetConfigureActivityForResult(activity, appWidgetId, 0, REQ_RECONFIGURE, null)
+            }
+        }
+    }
+
     private fun configureOrFinish() {
         val info = pendingInfo ?: return
         if (info.configure != null) {
@@ -100,6 +180,7 @@ class WidgetController(
     }
 
     fun onActivityResult(requestCode: Int, resultCode: Int) {
+        if (requestCode == REQ_RECONFIGURE) return
         if (requestCode != REQ_CONFIGURE) return
         if (resultCode == Activity.RESULT_OK) finish() else cancel()
     }
