@@ -34,10 +34,14 @@ class MainActivity : ComponentActivity() {
 
         widgets = WidgetController(this) { id, info ->
             val d = resources.displayMetrics.density
-            val sx = (((info.minWidth / d) + 30) / 70).toInt().coerceIn(1, HOME_COLS)
-            val sy = (((info.minHeight / d) + 30) / 70).toInt().coerceIn(1, HOME_ROWS)
             lifecycleScope.launch {
-                val ok = container.settings.addHomeItem(ItemKind.WIDGET, id.toString(), sx, sy, container.currentPage)
+                val ok = container.settings.addHomeItem(
+                    kind = ItemKind.WIDGET,
+                    data = id.toString(),
+                    sx = (((info.minWidth / d) + 30) / 70).toInt().coerceIn(1, HOME_COLS),
+                    sy = (((info.minHeight / d) + 30) / 70).toInt().coerceIn(1, HOME_ROWS),
+                    page = container.currentPage,
+                )
                 if (!ok) {
                     widgets.delete(id)
                     Toast.makeText(this@MainActivity, getString(R.string.toast_no_space_on_home), Toast.LENGTH_SHORT).show()

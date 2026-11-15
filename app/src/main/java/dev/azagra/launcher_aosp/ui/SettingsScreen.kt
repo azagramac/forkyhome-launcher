@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,8 +15,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -23,8 +28,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,11 +57,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import dev.azagra.launcher_aosp.R
+import dev.azagra.launcher_aosp.data.AppInfo
 import dev.azagra.launcher_aosp.data.DrawerBg
 import dev.azagra.launcher_aosp.data.IconPacks
+import dev.azagra.launcher_aosp.data.IconShape
 import dev.azagra.launcher_aosp.data.LauncherSettings
 import dev.azagra.launcher_aosp.data.ThemeMode
 import dev.azagra.launcher_aosp.notif.NotificationCounter
@@ -66,6 +76,8 @@ private val SectionCardShape = RoundedCornerShape(24.dp)
 fun SettingsScreen(
     s: LauncherSettings,
     packs: List<IconPacks.Pack>,
+    allApps: List<AppInfo> = emptyList(),
+    onAuthenticate: ((() -> Unit) -> Unit)? = null,
     onChange: ((LauncherSettings) -> LauncherSettings) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -80,6 +92,7 @@ fun SettingsScreen(
     }
     var alpha by remember(s.drawerAlpha) { mutableFloatStateOf(s.drawerAlpha) }
     var packDialog by remember { mutableStateOf(false) }
+    var privacyDialog by remember { mutableStateOf(false) }
     val roleManager = remember { ctx.getSystemService(RoleManager::class.java) }
     val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
     val (versionName, versionCode) = remember {
@@ -136,6 +149,45 @@ fun SettingsScreen(
                     }
                 }
 
+                SectionCard(stringResource(R.string.section_home_screen)) {
+                    Text(stringResource(R.string.settings_pages), style = MaterialTheme.typography.bodyMedium)
+                    Segmented((1..5).map { it to it.toString() }, s.homePages) { v -> onChange { it.copy(homePages = v) } }
+
+                    Text(stringResource(R.string.settings_home_columns), style = MaterialTheme.typography.bodyMedium)
+                    Segmented(listOf(4 to "4", 5 to "5", 6 to "6"), s.homeCols) { v -> onChange { it.copy(homeCols = v) } }
+
+                    Text(stringResource(R.string.settings_home_rows), style = MaterialTheme.typography.bodyMedium)
+                    Segmented(listOf(4 to "4", 5 to "5", 6 to "6", 7 to "7"), s.homeRows) { v -> onChange { it.copy(homeRows = v) } }
+
+                    SwitchRow(stringResource(R.string.settings_show_home_labels), null, s.showHomeLabels) { v ->
+                        onChange { it.copy(showHomeLabels = v) }
+                    }
+                    SwitchRow(
+                        stringResource(R.string.settings_lock_desktop),
+                        stringResource(R.string.settings_lock_desktop_desc),
+                        s.lockDesktop,
+                    ) { v ->
+                        onChange { it.copy(lockDesktop = v) }
+                    }
+                    SwitchRow(stringResource(R.string.settings_auto_add_apps), null, s.autoAddNewApps) { v ->
+                        onChange { it.copy(autoAddNewApps = v) }
+                    }
+                    SwitchRow(
+                        stringResource(R.string.settings_swipe_down_notif),
+                        stringResource(R.string.settings_swipe_down_notif_desc),
+                        s.swipeDownNotifications,
+                    ) { v ->
+                        onChange { it.copy(swipeDownNotifications = v) }
+                    }
+
+                    if (!roleManager.isRoleHeld(RoleManager.ROLE_HOME)) {
+                        Button(
+                            { roleLauncher.launch(roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)) },
+                            Modifier.fillMaxWidth(),
+                        ) { Text(stringResource(R.string.settings_set_default_launcher)) }
+                    }
+                }
+
                 SectionCard(stringResource(R.string.section_app_drawer)) {
                     Segmented(
                         listOf(
@@ -165,6 +217,27 @@ fun SettingsScreen(
                         val packName = packs.firstOrNull { it.pkg == s.iconPack }?.label ?: stringResource(R.string.icon_pack_default)
                         Text(stringResource(R.string.settings_icon_pack_value, packName))
                     }
+                    Text(stringResource(R.string.settings_icon_shape), style = MaterialTheme.typography.bodyMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        val shapes = listOf(
+                            IconShape.DEFAULT to stringResource(R.string.shape_default),
+                            IconShape.CIRCLE to stringResource(R.string.shape_circle),
+                            IconShape.SQUIRCLE to stringResource(R.string.shape_squircle),
+                            IconShape.ROUNDED to stringResource(R.string.shape_rounded),
+                            IconShape.TEARDROP to stringResource(R.string.shape_teardrop),
+                        )
+                        shapes.forEach { (sh, label) ->
+                            FilterChip(
+                                selected = s.iconShape == sh,
+                                onClick = { onChange { it.copy(iconShape = sh) } },
+                                label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
                     SwitchRow(
                         stringResource(R.string.settings_themed_icons),
                         stringResource(R.string.settings_themed_icons_desc),
@@ -189,15 +262,24 @@ fun SettingsScreen(
                     }
                 }
 
-                SectionCard(stringResource(R.string.section_home_screen)) {
-                    Text(stringResource(R.string.settings_pages), style = MaterialTheme.typography.bodyMedium)
-                    Segmented((1..5).map { it to it.toString() }, s.homePages) { v -> onChange { it.copy(homePages = v) } }
-
-                    if (!roleManager.isRoleHeld(RoleManager.ROLE_HOME)) {
-                        Button(
-                            { roleLauncher.launch(roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)) },
-                            Modifier.fillMaxWidth(),
-                        ) { Text(stringResource(R.string.settings_set_default_launcher)) }
+                // Sección de Privacidad estilo LineageOS Trebuchet (Apps ocultas y protegidas)
+                SectionCard(stringResource(R.string.section_privacy)) {
+                    Text(
+                        stringResource(R.string.settings_hidden_protected_desc, s.hiddenApps.size, s.protectedApps.size),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    FilledTonalButton(
+                        onClick = {
+                            if (onAuthenticate != null) {
+                                onAuthenticate { privacyDialog = true }
+                            } else {
+                                privacyDialog = true
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.settings_hidden_protected_apps))
                     }
                 }
 
@@ -277,6 +359,75 @@ fun SettingsScreen(
                 }
             },
             confirmButton = { TextButton({ packDialog = false }) { Text(stringResource(R.string.action_close)) } },
+        )
+    }
+
+    if (privacyDialog) {
+        val uniqueApps = remember(allApps) { allApps.distinctBy { it.pkg } }
+        AlertDialog(
+            onDismissRequest = { privacyDialog = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            title = { Text(stringResource(R.string.dialog_hidden_protected_title)) },
+            text = {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(uniqueApps, key = { it.pkg }) { app ->
+                        val isHidden = app.pkg in s.hiddenApps
+                        val isProtected = app.pkg in s.protectedApps
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Image(
+                                bitmap = app.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(36.dp),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = app.label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(stringResource(R.string.label_hidden), style = MaterialTheme.typography.labelSmall)
+                                Checkbox(
+                                    checked = isHidden,
+                                    onCheckedChange = { checked ->
+                                        onChange { st ->
+                                            val next = if (checked) st.hiddenApps + app.pkg else st.hiddenApps - app.pkg
+                                            st.copy(hiddenApps = next)
+                                        }
+                                    },
+                                )
+                            }
+                            Spacer(Modifier.width(6.dp))
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(stringResource(R.string.label_protected), style = MaterialTheme.typography.labelSmall)
+                                Checkbox(
+                                    checked = isProtected,
+                                    onCheckedChange = { checked ->
+                                        onChange { st ->
+                                            val next = if (checked) st.protectedApps + app.pkg else st.protectedApps - app.pkg
+                                            st.copy(protectedApps = next)
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton({ privacyDialog = false }) { Text(stringResource(R.string.action_close)) }
+            },
         )
     }
 }

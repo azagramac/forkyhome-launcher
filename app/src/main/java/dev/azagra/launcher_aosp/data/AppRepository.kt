@@ -20,7 +20,9 @@ import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
@@ -31,6 +33,9 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
 
     private val _apps = MutableStateFlow<List<AppInfo>>(emptyList())
     val apps: StateFlow<List<AppInfo>> = _apps
+
+    private val _newPackages = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val newPackages: SharedFlow<String> = _newPackages
 
     @Volatile
     private var config = IconConfig()
@@ -44,7 +49,12 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
             addDataScheme("package")
         }
         ContextCompat.registerReceiver(ctx, object : BroadcastReceiver() {
-            override fun onReceive(c: Context?, i: Intent?) = refresh()
+            override fun onReceive(c: Context?, i: Intent?) {
+                refresh()
+                if (i?.action == Intent.ACTION_PACKAGE_ADDED && !i.getBooleanExtra(Intent.EXTRA_REPLACING, false)) {
+                    i.data?.schemeSpecificPart?.let { pkg -> _newPackages.tryEmit(pkg) }
+                }
+            }
         }, filter, ContextCompat.RECEIVER_EXPORTED)
         refresh()
     }
@@ -72,6 +82,34 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
             .setComponent(app.component)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
         runCatching { context.startActivity(i) }
+    }
+
+    /** Obtiene hasta 4 atajos rápidos (Deep Shortcuts) publicados por la aplicación. */
+    fun getShortcuts(pkg: String): List<AppShortcut> = runCatching {
+        if (!launcherApps.hasShortcutHostPermission()) return emptyList()
+        val q = LauncherApps.ShortcutQuery().apply {
+            setPackage(pkg)
+            setQueryFlags(
+                LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
+                    LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST
+            )
+        }
+        launcherApps.getShortcuts(q, Process.myUserHandle())
+            ?.filter { it.isEnabled }
+            ?.sortedBy { it.rank }
+            ?.take(4)
+            ?.mapNotNull { info ->
+                val label = (info.shortLabel ?: info.longLabel)?.toString()?.takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+                AppShortcut(info.id, info.`package`, label)
+            }
+            ?: emptyList()
+    }.getOrDefault(emptyList())
+
+    fun launchShortcut(shortcut: AppShortcut) {
+        runCatching {
+            launcherApps.startShortcut(shortcut.pkg, shortcut.id, null, null, Process.myUserHandle())
+        }
     }
 
     /** Dock inicial: teléfono, mensajes, navegador y cámara (si existen). */

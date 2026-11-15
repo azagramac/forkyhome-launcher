@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -20,11 +21,20 @@ private object K {
     val drawerBg = stringPreferencesKey("drawer_bg")
     val drawerAlpha = floatPreferencesKey("drawer_alpha")
     val iconPack = stringPreferencesKey("icon_pack")
+    val iconShape = stringPreferencesKey("icon_shape")
     val themed = booleanPreferencesKey("themed")
     val badges = booleanPreferencesKey("badges")
     val columns = intPreferencesKey("columns")
     val labels = booleanPreferencesKey("labels")
     val pages = intPreferencesKey("pages")
+    val homeCols = intPreferencesKey("home_cols")
+    val homeRows = intPreferencesKey("home_rows")
+    val homeLabels = booleanPreferencesKey("home_labels")
+    val lockDesktop = booleanPreferencesKey("lock_desktop")
+    val autoAddApps = booleanPreferencesKey("auto_add_apps")
+    val swipeDownNotif = booleanPreferencesKey("swipe_down_notif")
+    val hiddenApps = stringSetPreferencesKey("hidden_apps")
+    val protectedApps = stringSetPreferencesKey("protected_apps")
     val dock = stringPreferencesKey("dock")
     val dockInit = booleanPreferencesKey("dock_init")
     val home = stringPreferencesKey("home")
@@ -42,7 +52,7 @@ class SettingsStore(private val ctx: Context) {
     suspend fun addHomeItem(kind: ItemKind, data: String, sx: Int, sy: Int, page: Int): Boolean {
         var ok = false
         update { s ->
-            val slot = findFree(s.home, s.homePages, page, sx, sy)
+            val slot = findFree(s.home, s.homePages, page, sx, sy, s.homeCols, s.homeRows)
             if (slot == null) s else {
                 ok = true
                 val id = (s.home.maxOfOrNull { it.id } ?: 0) + 1
@@ -58,11 +68,20 @@ class SettingsStore(private val ctx: Context) {
         drawerBg = p[K.drawerBg].toEnum(DrawerBg.SYSTEM),
         drawerAlpha = p[K.drawerAlpha] ?: 0.96f,
         iconPack = p[K.iconPack],
+        iconShape = p[K.iconShape].toEnum(IconShape.DEFAULT),
         themedIcons = p[K.themed] ?: false,
         badgeNumbers = p[K.badges] ?: true,
         columns = p[K.columns] ?: 5,
         showLabels = p[K.labels] ?: true,
         homePages = p[K.pages] ?: 2,
+        homeCols = (p[K.homeCols] ?: HOME_COLS).coerceIn(4, 6),
+        homeRows = (p[K.homeRows] ?: HOME_ROWS).coerceIn(4, 7),
+        showHomeLabels = p[K.homeLabels] ?: true,
+        lockDesktop = p[K.lockDesktop] ?: false,
+        autoAddNewApps = p[K.autoAddApps] ?: false,
+        swipeDownNotifications = p[K.swipeDownNotif] ?: true,
+        hiddenApps = p[K.hiddenApps] ?: emptySet(),
+        protectedApps = p[K.protectedApps] ?: emptySet(),
         dock = p[K.dock]?.lines()?.filter { it.isNotBlank() } ?: emptyList(),
         dockInit = p[K.dockInit] ?: false,
         home = p[K.home]?.lines()?.mapNotNull { HomeItem.decode(it) } ?: emptyList(),
@@ -75,11 +94,20 @@ class SettingsStore(private val ctx: Context) {
         p[K.drawerAlpha] = s.drawerAlpha
         val pack = s.iconPack
         if (pack == null) p.remove(K.iconPack) else p[K.iconPack] = pack
+        p[K.iconShape] = s.iconShape.name
         p[K.themed] = s.themedIcons
         p[K.badges] = s.badgeNumbers
         p[K.columns] = s.columns
         p[K.labels] = s.showLabels
         p[K.pages] = s.homePages
+        p[K.homeCols] = s.homeCols
+        p[K.homeRows] = s.homeRows
+        p[K.homeLabels] = s.showHomeLabels
+        p[K.lockDesktop] = s.lockDesktop
+        p[K.autoAddApps] = s.autoAddNewApps
+        p[K.swipeDownNotif] = s.swipeDownNotifications
+        p[K.hiddenApps] = s.hiddenApps
+        p[K.protectedApps] = s.protectedApps
         p[K.dock] = s.dock.take(DOCK_MAX).joinToString("\n")
         p[K.dockInit] = s.dockInit
         p[K.home] = s.home.joinToString("\n") { it.encode() }

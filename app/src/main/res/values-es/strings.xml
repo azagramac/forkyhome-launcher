@@ -11,15 +11,27 @@
     <string name="action_add_to_dock">Añadir al dock</string>
     <string name="action_remove_from_home">Quitar del escritorio</string>
     <string name="action_remove_from_dock">Quitar del dock</string>
+    <string name="action_hide_app">Ocultar aplicación</string>
+    <string name="action_protect_app">Proteger aplicación</string>
+    <string name="action_unprotect_app">Quitar protección</string>
     <string name="toast_added_to_home">Añadido al escritorio</string>
     <string name="toast_no_space_on_home">No hay sitio en el escritorio</string>
+    <string name="toast_desktop_locked">El escritorio está bloqueado</string>
 
-    <!-- Home long-press sheet & dialogs -->
+    <!-- Folders -->
+    <string name="folder_default_name">Carpeta</string>
+    <string name="folder_rename_hint">Nombre de la carpeta</string>
+    <string name="action_remove_from_folder">Sacar de la carpeta</string>
+
+    <!-- Home long-press menu & dialogs -->
     <string name="menu_widgets">Widgets</string>
     <string name="menu_wallpaper">Fondo de pantalla</string>
     <string name="menu_launcher_settings">Ajustes del launcher</string>
-    <string name="dialog_remove_widget_title">Quitar widget</string>
-    <string name="dialog_remove_widget_message">¿Quitar este widget del escritorio?</string>
+    <string name="dialog_remove_widget_title">Gestionar widget</string>
+    <string name="dialog_remove_widget_message">Ajusta el tamaño del widget (columnas × filas) o quítalo del escritorio.</string>
+    <string name="widget_width_cols">Ancho: %1$d columnas</string>
+    <string name="widget_height_rows">Alto: %1$d filas</string>
+    <string name="action_save">Guardar</string>
     <string name="action_remove">Quitar</string>
     <string name="action_cancel">Cancelar</string>
     <string name="action_close">Cerrar</string>
@@ -42,12 +54,18 @@
     <string name="drawer_bg_dark">Oscuro</string>
     <string name="settings_bg_opacity">Opacidad del fondo</string>
     <string name="settings_columns">Columnas</string>
-    <string name="settings_show_labels">Mostrar nombres</string>
+    <string name="settings_show_labels">Mostrar nombres en el cajón</string>
 
     <string name="section_icons">Iconos</string>
     <string name="settings_icon_pack_value">Pack de iconos: %1$s</string>
     <string name="icon_pack_default">Predeterminado</string>
     <string name="icon_pack_default_system">Predeterminado (sistema)</string>
+    <string name="settings_icon_shape">Forma de los iconos</string>
+    <string name="shape_default">Sistema</string>
+    <string name="shape_circle">Círculo</string>
+    <string name="shape_squircle">Squircle</string>
+    <string name="shape_rounded">Redondeado</string>
+    <string name="shape_teardrop">Lágrima</string>
     <string name="settings_themed_icons">Iconos temáticos</string>
     <string name="settings_themed_icons_desc">Usa la capa monocroma con el color de Material You en escritorio y dock</string>
     <string name="settings_badge_numbers">Número en notificaciones</string>
@@ -56,9 +74,27 @@
     <string name="dialog_icon_pack_title">Pack de iconos</string>
     <string name="dialog_no_icon_packs">No hay packs instalados. Instala uno desde la tienda (Nova/ADW/Apex).</string>
 
-    <string name="section_home_screen">Escritorio</string>
+    <string name="section_home_screen">Escritorio y gestos</string>
     <string name="settings_pages">Páginas</string>
+    <string name="settings_home_columns">Columnas del escritorio</string>
+    <string name="settings_home_rows">Filas del escritorio</string>
+    <string name="settings_show_home_labels">Mostrar nombres en el escritorio</string>
+    <string name="settings_lock_desktop">Bloquear escritorio</string>
+    <string name="settings_lock_desktop_desc">Impide mover, añadir o eliminar elementos del escritorio</string>
+    <string name="settings_auto_add_apps">Añadir nuevas apps al escritorio</string>
+    <string name="settings_swipe_down_notif">Deslizar abajo para notificaciones</string>
+    <string name="settings_swipe_down_notif_desc">Desliza hacia abajo en el escritorio para abrir el panel de notificaciones</string>
     <string name="settings_set_default_launcher">Establecer como launcher predeterminado</string>
+
+    <!-- Hidden & Protected apps (Trebuchet Privacy) -->
+    <string name="section_privacy">Privacidad (Trebuchet)</string>
+    <string name="settings_hidden_protected_apps">Aplicaciones ocultas y protegidas</string>
+    <string name="settings_hidden_protected_desc">%1$d ocultas · %2$d protegidas</string>
+    <string name="dialog_hidden_protected_title">Aplicaciones ocultas y protegidas</string>
+    <string name="label_hidden">Oculta</string>
+    <string name="label_protected">Protegida</string>
+    <string name="auth_protected_app_title">Aplicación protegida</string>
+    <string name="auth_protected_app_desc">Verifica tu identidad para continuar</string>
 
     <!-- Footer / About -->
     <string name="footer_version_build">Versión %1$s (Build %2$d)</string>

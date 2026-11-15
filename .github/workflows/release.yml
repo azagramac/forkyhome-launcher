@@ -1,13 +1,13 @@
-name: 🚀 Release
+name: 🚀 Release & Publish
 
-# Se lanza al subir una etiqueta tipo v1.0.0 o manualmente
+# Triggered on v* tags (e.g. v1.0.0) or manually via workflow_dispatch
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
       version:
-        description: "Versión (ej. 1.0.0) — solo para lanzamiento manual"
+        description: "Release version (e.g. 1.0.0) — manual dispatch only"
         required: true
 
 permissions:
@@ -15,12 +15,12 @@ permissions:
 
 jobs:
   debug-and-test:
-    name: 🧪 Compilar Debug y pasar Tests Unitarios
+    name: 🧪 Verify Debug Build
     uses: ./.github/workflows/build.yml
     secrets: inherit
 
   release:
-    name: 📦 Compilar y publicar Release
+    name: 📦 Build & Publish Release APK
     needs: debug-and-test
     runs-on: ubuntu-latest
     env:
@@ -28,10 +28,10 @@ jobs:
       KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
       KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
     steps:
-      - name: 📥 Descargar código fuente
+      - name: 📥 Checkout repository
         uses: actions/checkout@v7
 
-      - name: 🏷️ Calcular versión
+      - name: 🏷️ Resolve Release Version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             V="${{ github.event.inputs.version }}"
@@ -41,36 +41,36 @@ jobs:
           V="${V#v}"
           echo "VERSION=$V" >> "$GITHUB_ENV"
           echo "TAG=v$V" >> "$GITHUB_ENV"
-          echo "📌 Versión detectada: v$V"
+          echo "📌 Resolved version: v$V"
 
-      - name: ☕ Configurar Java 17
+      - name: ☕ Set up Java 17
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 17
 
-      - name: 🤖 Configurar Android SDK
+      - name: 🤖 Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: "platforms;android-36 build-tools;36.0.0"
 
-      - name: 🐘 Configurar Gradle 8.14
+      - name: 🐘 Set up Gradle 8.14
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: 8.14
 
-      - name: 🔐 Preparar firma de producción
+      - name: 🔐 Prepare Release Signing Keystore
         env:
           KEYSTORE_RELEASE_B64: ${{ secrets.ANDROID_KEYSTORE_RELEASE_BASE64 }}
           KEYSTORE_FALLBACK_B64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           B64="${KEYSTORE_RELEASE_B64:-$KEYSTORE_FALLBACK_B64}"
           if [ -z "$B64" ]; then
-            echo "::error::❌ Falta el secret ANDROID_KEYSTORE_RELEASE_BASE64 (o KEYSTORE_BASE64) en GitHub Secrets."
+            echo "::error::❌ Missing ANDROID_KEYSTORE_RELEASE_BASE64 (or KEYSTORE_BASE64) secret in GitHub Secrets."
             exit 1
           fi
           if [ -z "$KEYSTORE_PASSWORD" ]; then
-            echo "::error::❌ Falta el secret KEYSTORE_PASSWORD en GitHub Secrets."
+            echo "::error::❌ Missing KEYSTORE_PASSWORD secret in GitHub Secrets."
             exit 1
           fi
           JKS="$RUNNER_TEMP/release.jks"
@@ -80,12 +80,12 @@ jobs:
             DETECTED_ALIAS=$(keytool -list -keystore "$JKS" -storepass "$KEYSTORE_PASSWORD" 2>/dev/null | grep -i "PrivateKeyEntry" | head -n1 | cut -d',' -f1)
             [ -n "$DETECTED_ALIAS" ] && echo "KEY_ALIAS=$DETECTED_ALIAS" >> "$GITHUB_ENV"
           fi
-          echo "✅ Keystore de producción cargado desde GitHub Secrets."
+          echo "✅ Production keystore loaded from GitHub Secrets."
 
-      - name: 🛠️ Compilar APK release
+      - name: 🛠️ Build Release APK
         run: gradle assembleRelease -PversionName="$VERSION" -PversionCode="${{ github.run_number }}" --stacktrace
 
-      - name: 📦 Preparar artefactos y checksums
+      - name: 📦 Prepare Release Artifacts & SHA-256 Checksums
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/release/*.apk dist/
@@ -95,29 +95,29 @@ jobs:
           done
           ls -lh
 
-      - name: 📊 Generar resumen de la Release
+      - name: 📊 Generate Release Summary
         run: |
           APK_FILE=$(ls dist/*.apk | head -n 1)
           APK_NAME=$(basename "$APK_FILE")
           APK_SIZE=$(du -h "$APK_FILE" | cut -f1)
           APK_SHA256=$(cut -d' ' -f1 "$APK_FILE.sha256")
           {
-            echo "### 🚀 Resumen de Release (\`$TAG\`)"
-            echo "| Campo | Valor |"
+            echo "### 🚀 Release Summary (\`$TAG\`)"
+            echo "| Field | Value |"
             echo "| :--- | :--- |"
-            echo "| 🧪 **Pre-requisito Debug + Tests** | ✅ Verificado |"
-            echo "| 🏷️ **Versión** | \`$VERSION\` (\`versionCode: ${{ github.run_number }}\`) |"
+            echo "| 🧪 **Debug & Unit Tests Gate** | ✅ Passed |"
+            echo "| 🏷️ **Version** | \`$VERSION\` (\`versionCode: ${{ github.run_number }}\`) |"
             echo "| 📦 **APK** | \`$APK_NAME\` |"
-            echo "| 📏 **Tamaño** | \`$APK_SIZE\` |"
-            echo "| 🔑 **Firma** | 🔐 Keystore de producción (\`ANDROID_KEYSTORE_RELEASE_BASE64\`) |"
+            echo "| 📏 **Size** | \`$APK_SIZE\` |"
+            echo "| 🔑 **Signing** | 🔐 Production Keystore (\`ANDROID_KEYSTORE_RELEASE_BASE64\`) |"
             echo "| 🔒 **SHA-256** | \`$APK_SHA256\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: 🧹 Limpiar keystore del runner
+      - name: 🧹 Clean up Keystore from Runner
         if: always()
         run: rm -f "$RUNNER_TEMP/release.jks"
 
-      - name: 🚀 Publicar en GitHub Releases
+      - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}

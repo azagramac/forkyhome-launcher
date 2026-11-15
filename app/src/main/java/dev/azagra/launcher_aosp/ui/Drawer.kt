@@ -105,8 +105,9 @@ fun AppDrawer(
         }
     }
 
-    val filtered = remember(apps, query) {
-        if (query.isBlank()) apps else apps.filter { it.label.contains(query, ignoreCase = true) }
+    val filtered = remember(apps, query, s.hiddenApps) {
+        val visibleApps = if (s.hiddenApps.isEmpty()) apps else apps.filter { it.pkg !in s.hiddenApps && it.key !in s.hiddenApps }
+        if (query.isBlank()) visibleApps else visibleApps.filter { it.label.contains(query, ignoreCase = true) }
     }
 
     // Arrastrar el cajón desde dentro de la lista sin interferir con el fling a 120fps de la cuadrícula
@@ -215,6 +216,7 @@ fun AppDrawer(
                     onClick = { onLaunch(app) },
                     modifier = Modifier.fillMaxWidth(),
                     useHomeIcon = false,
+                    iconShape = s.iconShape,
                 )
             }
         }

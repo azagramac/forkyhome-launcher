@@ -2,14 +2,17 @@ package dev.azagra.launcher_aosp
 
 import dev.azagra.launcher_aosp.data.DOCK_MAX
 import dev.azagra.launcher_aosp.data.DrawerBg
+import dev.azagra.launcher_aosp.data.FolderPayload
 import dev.azagra.launcher_aosp.data.HOME_COLS
 import dev.azagra.launcher_aosp.data.HOME_ROWS
 import dev.azagra.launcher_aosp.data.HomeItem
+import dev.azagra.launcher_aosp.data.IconShape
 import dev.azagra.launcher_aosp.data.ItemKind
 import dev.azagra.launcher_aosp.data.LauncherSettings
 import dev.azagra.launcher_aosp.data.ThemeMode
 import dev.azagra.launcher_aosp.data.findFree
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -53,6 +56,32 @@ class LauncherUnitTest {
     }
 
     @Test
+    fun `HomeItem supports FOLDER kind with FolderPayload`() {
+        val folder = FolderPayload(
+            title = "Google",
+            apps = listOf("com.android.chrome/.Main", "com.google.android.gm/.GmailActivity"),
+        )
+        val item = HomeItem(
+            id = 42,
+            kind = ItemKind.FOLDER,
+            page = 0,
+            col = 1,
+            row = 2,
+            spanX = 1,
+            spanY = 1,
+            data = folder.encode(),
+        )
+        val decodedItem = HomeItem.decode(item.encode())
+        assertNotNull(decodedItem)
+        assertEquals(ItemKind.FOLDER, decodedItem!!.kind)
+
+        val decodedFolder = FolderPayload.decode(decodedItem.data)
+        assertEquals("Google", decodedFolder.title)
+        assertEquals(2, decodedFolder.apps.size)
+        assertEquals(folder.apps, decodedFolder.apps)
+    }
+
+    @Test
     fun `HomeItem decode returns null for invalid strings`() {
         assertNull(HomeItem.decode(""))
         assertNull(HomeItem.decode("invalid"))
@@ -82,6 +111,15 @@ class LauncherUnitTest {
     }
 
     @Test
+    fun `findFree respects custom grid cols and rows`() {
+        val existing = (0 until 4).map { c ->
+            HomeItem(c + 1, ItemKind.APP, page = 0, col = c, row = 0, spanX = 1, spanY = 1, data = "app$c")
+        }
+        val slot = findFree(existing, pages = 1, startPage = 0, sx = 1, sy = 1, cols = 4, rows = 4)
+        assertEquals(Triple(0, 0, 1), slot)
+    }
+
+    @Test
     fun `findFree advances to next page when current page has insufficient space`() {
         val existing = (0 until HOME_ROWS).map { r ->
             HomeItem(r + 1, ItemKind.APP, page = 0, col = 0, row = r, spanX = 1, spanY = 1, data = "app$r")
@@ -107,12 +145,22 @@ class LauncherUnitTest {
     }
 
     @Test
-    fun `LauncherSettings has valid default values`() {
+    fun `LauncherSettings has valid default values including Trebuchet features`() {
         val defaults = LauncherSettings()
         assertEquals(ThemeMode.SYSTEM, defaults.themeMode)
         assertTrue(defaults.dynamicColor)
         assertEquals(DrawerBg.SYSTEM, defaults.drawerBg)
         assertEquals(5, defaults.columns)
+        assertEquals(HOME_COLS, defaults.homeCols)
+        assertEquals(HOME_ROWS, defaults.homeRows)
+        assertTrue(defaults.showLabels)
+        assertTrue(defaults.showHomeLabels)
+        assertFalse(defaults.lockDesktop)
+        assertFalse(defaults.autoAddNewApps)
+        assertEquals(IconShape.DEFAULT, defaults.iconShape)
+        assertTrue(defaults.swipeDownNotifications)
+        assertTrue(defaults.hiddenApps.isEmpty())
+        assertTrue(defaults.protectedApps.isEmpty())
         assertTrue(defaults.homePages in 1..5)
         assertTrue(DOCK_MAX == 5)
     }
