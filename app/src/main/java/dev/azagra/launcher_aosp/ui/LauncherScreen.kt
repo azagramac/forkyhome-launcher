@@ -21,15 +21,16 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,13 +43,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -62,11 +66,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -87,6 +92,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -94,8 +100,11 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -116,12 +125,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val FloatingMenuShape = RoundedCornerShape(24.dp)
+private val FolderCardShape = RoundedCornerShape(28.dp)
 private val CellHighlightShape = RoundedCornerShape(20.dp)
 private val DockShape = RoundedCornerShape(32.dp)
 
 private sealed interface DragSource {
     data class Home(val item: HomeItem) : DragSource
     data class Dock(val index: Int, val appKey: String) : DragSource
+    data class Drawer(val app: AppInfo) : DragSource
+    data class Folder(val folderId: Int, val app: AppInfo) : DragSource
 }
 
 private data class DragSession(
@@ -151,7 +163,8 @@ private fun resolveDockSlot(
     if (!isDropOverDock(session, posInRoot, dockBounds, topMarginPx)) return null
     val count = when (session.source) {
         is DragSource.Dock -> currentDockSize.coerceAtLeast(1)
-        is DragSource.Home -> (currentDockSize + 1).coerceAtMost(DOCK_MAX).coerceAtLeast(1)
+        is DragSource.Home, is DragSource.Drawer, is DragSource.Folder ->
+            (currentDockSize + 1).coerceAtMost(DOCK_MAX).coerceAtLeast(1)
     }
     val relX = (posInRoot.x - dockBounds.left).coerceIn(0f, (dockBounds.width - 1f).coerceAtLeast(1f))
     return ((relX / dockBounds.width) * count).toInt().coerceIn(0, count - 1)
@@ -176,8 +189,32 @@ private fun resolveGridTarget(
     val row = exactRow.toInt().coerceIn(0, rows - 1)
     val fracX = exactCol - col
     val fracY = exactRow - row
-    val inCenter = fracX in 0.25f..0.75f && fracY in 0.25f..0.75f
+    // Si viene del cajón o carpeta, soltar sobre otro icono siempre agrupa en carpeta;
+    // en escritorio usamos un margen amplio (15%..85%) para crear carpeta fácilmente
+    val inCenter = session.source is DragSource.Drawer ||
+        session.source is DragSource.Folder ||
+        (fracX in 0.15f..0.85f && fracY in 0.15f..0.85f)
     return Triple(col, row, inCenter)
+}
+
+/** Elimina una app de una carpeta; si queda 1 sola app la convierte en icono normal, y si queda vacía la borra. */
+private fun removeAppFromFolderInList(
+    home: List<HomeItem>,
+    folderId: Int,
+    appKey: String,
+): List<HomeItem> {
+    val folderItem = home.firstOrNull { it.id == folderId && it.kind == ItemKind.FOLDER } ?: return home
+    val payload = FolderPayload.decode(folderItem.data)
+    val remaining = payload.apps.filter { it != appKey }
+    return when {
+        remaining.isEmpty() -> home.filter { it.id != folderId }
+        remaining.size == 1 -> home.map {
+            if (it.id == folderId) it.copy(kind = ItemKind.APP, data = remaining.first()) else it
+        }
+        else -> home.map {
+            if (it.id == folderId) it.copy(data = payload.copy(apps = remaining).encode()) else it
+        }
+    }
 }
 
 @SuppressLint("WrongConstant")
@@ -195,6 +232,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     val ctx = LocalContext.current
     val density = LocalDensity.current
     val haptics = LocalHapticFeedback.current
+    val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
     val repo = container.apps
     val store = container.settings
@@ -226,7 +264,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         pendingProtectedAction = null
     }
 
-    // Coordenadas en tiempo real para Drag & Drop entre Escritorio y Dock
+    // Coordenadas en tiempo real para Drag & Drop entre Cajón, Escritorio, Carpetas y Dock
     var gridBoundsInRoot by remember { mutableStateOf(Rect.Zero) }
     var dockBoundsInRoot by remember { mutableStateOf(Rect.Zero) }
     var isHoldingItem by remember { mutableStateOf(false) }
@@ -336,20 +374,8 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         add(MenuAction(ctx.getString(R.string.action_app_info), Icons.Default.Info) { details(app.pkg) })
         add(MenuAction(ctx.getString(R.string.action_uninstall), Icons.Default.Delete) { uninstall(app.pkg) })
     }
+    // En el cajón, al estilo Trebuchet, las apps se arrastran directamente al escritorio o dock sin botones en el menú
     fun drawerActions(app: AppInfo): List<MenuAction> = buildList {
-        add(MenuAction(ctx.getString(R.string.action_add_to_home), Icons.Default.Add) {
-            if (!checkUnlocked()) return@MenuAction
-            scope.launch {
-                if (store.addHomeItem(ItemKind.APP, app.key, 1, 1, pagerState.currentPage)) toast(ctx.getString(R.string.toast_added_to_home))
-                else toast(ctx.getString(R.string.toast_no_space_on_home))
-            }
-        })
-        if (app.key !in latestSettings.dock && latestSettings.dock.size < DOCK_MAX) {
-            add(MenuAction(ctx.getString(R.string.action_add_to_dock), Icons.Default.Add) {
-                if (!checkUnlocked()) return@MenuAction
-                edit { it.copy(dock = (it.dock + app.key).take(DOCK_MAX)) }
-            })
-        }
         add(MenuAction(ctx.getString(R.string.action_hide_app), Icons.Default.Close) {
             edit { st -> st.copy(hiddenApps = st.hiddenApps + app.pkg) }
         })
@@ -377,6 +403,9 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
 
         dragSession = null
         isHoldingItem = false
+        if (session.source is DragSource.Folder) {
+            openFolderId = null
+        }
 
         if (latestSettings.lockDesktop) {
             toast(ctx.getString(R.string.toast_desktop_locked))
@@ -444,6 +473,35 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                 )
                             }
                         }
+                        is DragSource.Drawer -> {
+                            val appKey = src.app.key
+                            val list = st.dock.toMutableList()
+                            val existingIdx = list.indexOf(appKey)
+                            if (existingIdx != -1) {
+                                list.removeAt(existingIdx)
+                                list.add(dockSlot.coerceIn(0, list.size), appKey)
+                            } else if (list.size < DOCK_MAX) {
+                                list.add(dockSlot.coerceIn(0, list.size), appKey)
+                            } else {
+                                list[dockSlot.coerceIn(0, list.lastIndex)] = appKey
+                            }
+                            st.copy(dock = list.take(DOCK_MAX))
+                        }
+                        is DragSource.Folder -> {
+                            val appKey = src.app.key
+                            val updatedHome = removeAppFromFolderInList(st.home, src.folderId, appKey)
+                            val list = st.dock.toMutableList()
+                            val existingIdx = list.indexOf(appKey)
+                            if (existingIdx != -1) {
+                                list.removeAt(existingIdx)
+                                list.add(dockSlot.coerceIn(0, list.size), appKey)
+                            } else if (list.size < DOCK_MAX) {
+                                list.add(dockSlot.coerceIn(0, list.size), appKey)
+                            } else {
+                                list[dockSlot.coerceIn(0, list.lastIndex)] = appKey
+                            }
+                            st.copy(dock = list.take(DOCK_MAX), home = updatedHome)
+                        }
                     }
                 }
                 gridInfo != null -> {
@@ -466,7 +524,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                         when (val src = session.source) {
                             is DragSource.Home -> {
                                 if (occupant != null && occupant.id != src.item.id) {
-                                    // Si soltamos una APP en el centro de otra APP o CARPETA -> Crear / Añadir a Carpeta
+                                    // Si soltamos una APP sobre otra APP o CARPETA -> Crear / Añadir a Carpeta
                                     if (src.item.kind == ItemKind.APP && (occupant.kind == ItemKind.FOLDER || inCenter)) {
                                         val updatedOccupant = if (occupant.kind == ItemKind.FOLDER) {
                                             val payload = FolderPayload.decode(occupant.data)
@@ -474,7 +532,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                             occupant.copy(data = payload.copy(apps = merged).encode())
                                         } else {
                                             val merged = listOf(occupant.data, src.item.data).distinct()
-                                            occupant.copy(
+                                            if (merged.size < 2) occupant else occupant.copy(
                                                 kind = ItemKind.FOLDER,
                                                 data = FolderPayload(defaultFolderName, merged).encode(),
                                             )
@@ -514,9 +572,10 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                             val payload = FolderPayload.decode(occupant.data)
                                             occupant.copy(data = payload.copy(apps = (payload.apps + src.appKey).distinct()).encode())
                                         } else {
-                                            occupant.copy(
+                                            val merged = listOf(occupant.data, src.appKey).distinct()
+                                            if (merged.size < 2) occupant else occupant.copy(
                                                 kind = ItemKind.FOLDER,
-                                                data = FolderPayload(defaultFolderName, listOf(occupant.data, src.appKey).distinct()).encode(),
+                                                data = FolderPayload(defaultFolderName, merged).encode(),
                                             )
                                         }
                                         st.copy(
@@ -553,6 +612,75 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                     )
                                 }
                             }
+                            is DragSource.Drawer -> {
+                                val appKey = src.app.key
+                                if (occupant != null) {
+                                    val updatedOccupant = if (occupant.kind == ItemKind.FOLDER) {
+                                        val payload = FolderPayload.decode(occupant.data)
+                                        occupant.copy(data = payload.copy(apps = (payload.apps + appKey).distinct()).encode())
+                                    } else {
+                                        val merged = listOf(occupant.data, appKey).distinct()
+                                        if (merged.size < 2) occupant else occupant.copy(
+                                            kind = ItemKind.FOLDER,
+                                            data = FolderPayload(defaultFolderName, merged).encode(),
+                                        )
+                                    }
+                                    st.copy(
+                                        home = st.home.map { if (it.id == occupant.id) updatedOccupant else it }
+                                    )
+                                } else {
+                                    val nextId = (st.home.maxOfOrNull { it.id } ?: 0) + 1
+                                    val newHomeItem = HomeItem(
+                                        id = nextId,
+                                        kind = ItemKind.APP,
+                                        page = currentPage,
+                                        col = destCol,
+                                        row = destRow,
+                                        spanX = 1,
+                                        spanY = 1,
+                                        data = appKey,
+                                    )
+                                    st.copy(home = st.home + newHomeItem)
+                                }
+                            }
+                            is DragSource.Folder -> {
+                                val appKey = src.app.key
+                                val baseHome = removeAppFromFolderInList(st.home, src.folderId, appKey)
+                                val occupantAfterRemoval = baseHome.firstOrNull {
+                                    it.page == currentPage &&
+                                        (it.kind == ItemKind.APP || it.kind == ItemKind.FOLDER) &&
+                                        it.col == destCol &&
+                                        it.row == destRow
+                                }
+                                if (occupantAfterRemoval != null) {
+                                    val updatedOccupant = if (occupantAfterRemoval.kind == ItemKind.FOLDER) {
+                                        val payload = FolderPayload.decode(occupantAfterRemoval.data)
+                                        occupantAfterRemoval.copy(data = payload.copy(apps = (payload.apps + appKey).distinct()).encode())
+                                    } else {
+                                        val merged = listOf(occupantAfterRemoval.data, appKey).distinct()
+                                        if (merged.size < 2) occupantAfterRemoval else occupantAfterRemoval.copy(
+                                            kind = ItemKind.FOLDER,
+                                            data = FolderPayload(defaultFolderName, merged).encode(),
+                                        )
+                                    }
+                                    st.copy(
+                                        home = baseHome.map { if (it.id == occupantAfterRemoval.id) updatedOccupant else it }
+                                    )
+                                } else {
+                                    val nextId = (baseHome.maxOfOrNull { it.id } ?: 0) + 1
+                                    val newHomeItem = HomeItem(
+                                        id = nextId,
+                                        kind = ItemKind.APP,
+                                        page = currentPage,
+                                        col = destCol,
+                                        row = destRow,
+                                        spanX = 1,
+                                        spanY = 1,
+                                        data = appKey,
+                                    )
+                                    st.copy(home = baseHome + newHomeItem)
+                                }
+                            }
                         }
                     }
                 }
@@ -562,27 +690,49 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     }
 
     val activeDrag = dragSession
+    val isDraggingOrHolding = activeDrag != null || isHoldingItem
+    val draggedDrawerAppKey = (activeDrag?.source as? DragSource.Drawer)?.app?.key
+    val isDraggingFromFolder = activeDrag?.source is DragSource.Folder
     val targetDockSlot: Int? = if (activeDrag != null) {
         resolveDockSlot(activeDrag, dragPosInRoot, dockBoundsInRoot, s.dock.size, dockMarginPx)
     } else null
 
     // ---- UI ----
     BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wPx = with(density) { maxWidth.toPx() }
         val hPx = with(density) { maxHeight.toPx() }
+        val edgeZonePx = with(density) { 38.dp.toPx() }
         var downwardPullPx by remember { mutableStateOf(0f) }
 
-        // Escritorio: se atenúa y encoge un poco al abrir el cajón
+        // Cambio automático de página al mantener un icono arrastrado junto al borde izquierdo/derecho (estilo Trebuchet)
+        val edgeDir = when {
+            activeDrag == null || targetDockSlot != null -> 0
+            dragPosInRoot.x > 0f && dragPosInRoot.x < edgeZonePx && pagerState.currentPage > 0 -> -1
+            dragPosInRoot.x > (wPx - edgeZonePx) && pagerState.currentPage < s.homePages - 1 -> 1
+            else -> 0
+        }
+        LaunchedEffect(edgeDir, pagerState.currentPage) {
+            if (edgeDir != 0) {
+                delay(450)
+                val next = (pagerState.currentPage + edgeDir).coerceIn(0, s.homePages - 1)
+                if (next != pagerState.currentPage) {
+                    pagerState.animateScrollToPage(next)
+                }
+            }
+        }
+
+        // Escritorio: se atenúa y encoge un poco al abrir el cajón (pero vuelve a 1f en cuanto arrastramos una app)
         Column(
             Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    val p = drawer.progress
+                    val p = if (activeDrag != null) 0f else drawer.progress
                     alpha = 1f - p
                     scaleX = 1f - 0.06f * p
                     scaleY = 1f - 0.06f * p
                 }
                 .draggable(
-                    enabled = activeDrag == null && !isHoldingItem,
+                    enabled = !isDraggingOrHolding && openFolderId == null,
                     state = rememberDraggableState { dy ->
                         if (dy < 0f || drawer.progress > 0f) {
                             downwardPullPx = 0f
@@ -607,7 +757,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         ) {
             HorizontalPager(
                 state = pagerState,
-                userScrollEnabled = activeDrag == null && !isHoldingItem,
+                userScrollEnabled = !isDraggingOrHolding && openFolderId == null,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
@@ -658,6 +808,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                     onStartItemDrag = { item, previewApp, startRootPos ->
                         if (!checkUnlocked()) return@HomePage
                         showMenu = false
+                        openFolderId = null
                         dragPosInRoot = startRootPos
                         dragSession = DragSession(DragSource.Home(item), previewApp)
                     },
@@ -732,6 +883,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                             onDragStart = { startRootPos ->
                                 if (!checkUnlocked()) return@AppIcon
                                 showMenu = false
+                                openFolderId = null
                                 dragPosInRoot = startRootPos
                                 dragSession = DragSession(DragSource.Dock(idx, appKey), app)
                             },
@@ -743,31 +895,171 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             }
         }
 
-        // Capa flotante del icono mientras se arrastra por el escritorio o dock
-        if (activeDrag != null && activeDrag.previewApp != null) {
-            val iconPx = with(density) { 56.dp.toPx() }
-            Box(
-                Modifier
-                    .offset {
-                        IntOffset(
-                            x = (dragPosInRoot.x - iconPx / 2f).roundToInt(),
-                            y = (dragPosInRoot.y - iconPx / 2f).roundToInt(),
+        // Vista flotante de Carpeta Abierta estilo LineageOS Trebuchet (user_folder_icon_normalized):
+        // Cuadrícula de iconos arriba y nombre editable abajo, sin AlertDialog ni LazyVerticalGrid que colapse.
+        val openFolderItem = remember(s.home, openFolderId) {
+            s.home.firstOrNull { it.id == openFolderId && it.kind == ItemKind.FOLDER }
+        }
+        if (openFolderItem != null) {
+            val payload = remember(openFolderItem.data) { FolderPayload.decode(openFolderItem.data) }
+            val defaultTitle = stringResource(R.string.folder_default_name)
+            var folderTitle by remember(openFolderItem.id, payload.title) {
+                mutableStateOf(payload.title.ifBlank { defaultTitle })
+            }
+            val folderApps = remember(payload.apps, appMap) {
+                payload.apps.mapNotNull { appMap[it] }
+            }
+            val rows = remember(folderApps) { folderApps.chunked(3) }
+
+            fun saveTitleAndClose() {
+                focusManager.clearFocus()
+                val cleanTitle = folderTitle.trim().ifBlank { defaultTitle }
+                if (cleanTitle != payload.title) {
+                    edit { st ->
+                        st.copy(
+                            home = st.home.map {
+                                if (it.id == openFolderItem.id) it.copy(data = payload.copy(title = cleanTitle).encode()) else it
+                            }
                         )
                     }
+                }
+                openFolderId = null
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
                     .graphicsLayer {
-                        scaleX = 1.18f
-                        scaleY = 1.18f
-                        alpha = 0.92f
+                        // Si el usuario empieza a arrastrar una app fuera de la carpeta, ocultamos la tarjeta
+                        // manteniendo vivas las coordenadas del gesto hasta que suelte el dedo en el escritorio/dock
+                        alpha = if (isDraggingFromFolder) 0f else 1f
                     }
+                    .background(Color.Black.copy(alpha = if (isDraggingFromFolder) 0f else 0.38f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        enabled = !isDraggingFromFolder,
+                        onClick = { saveTitleAndClose() },
+                    ),
+                contentAlignment = Alignment.Center,
             ) {
-                Image(
-                    bitmap = activeDrag.previewApp.homeIcon,
-                    contentDescription = activeDrag.previewApp.label,
-                    filterQuality = FilterQuality.Medium,
+                Surface(
+                    shape = FolderCardShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 8.dp,
+                    shadowElevation = 12.dp,
                     modifier = Modifier
-                        .size(56.dp)
-                        .let { if (s.iconShape != dev.azagra.launcher_aosp.data.IconShape.DEFAULT) it.clip(iconMaskShape(s.iconShape)) else it },
-                )
+                        .padding(horizontal = 28.dp)
+                        .widthIn(min = 260.dp, max = 360.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { focusManager.clearFocus() },
+                        ),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // Contenido de aplicaciones de la carpeta (folder_content en Trebuchet)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 320.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            rows.forEach { rowApps ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.Top,
+                                ) {
+                                    rowApps.forEach { app ->
+                                        key(app.key) {
+                                            Box(
+                                                modifier = Modifier.weight(1f),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                AppIcon(
+                                                    app = app,
+                                                    badge = if (s.badgeNumbers) counts[app.pkg] ?: 0 else 0,
+                                                    showLabel = true,
+                                                    labelColor = MaterialTheme.colorScheme.onSurface,
+                                                    iconSize = 54.dp,
+                                                    useHomeIcon = true,
+                                                    iconShape = s.iconShape,
+                                                    enableDrag = !s.lockDesktop,
+                                                    isBeingDragged = (activeDrag?.source as? DragSource.Folder)?.app?.key == app.key,
+                                                    actionsProvider = {
+                                                        listOf(
+                                                            MenuAction(ctx.getString(R.string.action_remove_from_folder), Icons.Default.Close) {
+                                                                if (!checkUnlocked()) return@MenuAction
+                                                                val remainingCount = payload.apps.count { it != app.key }
+                                                                edit { st ->
+                                                                    st.copy(home = removeAppFromFolderInList(st.home, openFolderItem.id, app.key))
+                                                                }
+                                                                if (remainingCount <= 1) openFolderId = null
+                                                            }
+                                                        ) + common(app)
+                                                    },
+                                                    onClick = {
+                                                        openFolderId = null
+                                                        openApp(app)
+                                                    },
+                                                    onPressHoldChange = { holding -> isHoldingItem = holding },
+                                                    onDragStart = { startRootPos ->
+                                                        if (!checkUnlocked()) return@AppIcon
+                                                        focusManager.clearFocus()
+                                                        dragPosInRoot = startRootPos
+                                                        dragSession = DragSession(DragSource.Folder(openFolderItem.id, app), app)
+                                                    },
+                                                    onDrag = { rootPos -> dragPosInRoot = rootPos },
+                                                    onDragEnd = { finishDrag() },
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                )
+                                            }
+                                        }
+                                    }
+                                    repeat(3 - rowApps.size) {
+                                        Spacer(Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+                        )
+
+                        // Pie de carpeta con título editable centrado (folder_footer / folder_name en Trebuchet)
+                        BasicTextField(
+                            value = folderTitle,
+                            onValueChange = { newTitle ->
+                                folderTitle = newTitle
+                                edit { st ->
+                                    st.copy(
+                                        home = st.home.map {
+                                            if (it.id == openFolderItem.id) it.copy(data = payload.copy(title = newTitle).encode()) else it
+                                        }
+                                    )
+                                }
+                            },
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.titleMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center,
+                            ),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                        )
+                    }
+                }
             }
         }
 
@@ -836,16 +1128,58 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             }
         }
 
-        // Mantenemos AppDrawer montado y trasladado por GPU (graphicsLayer) para evitar tirones al iniciar el gesto a 120fps
+        // Mantenemos AppDrawer montado y trasladado por GPU (graphicsLayer).
+        // Al arrastrar una app del cajón sin soltar, el cajón se oculta automáticamente y deja colocarla en el escritorio o dock.
         AppDrawer(
             apps = apps,
             counts = counts,
             s = s,
             drawer = drawer,
             heightPx = hPx,
+            isHoldingOrDragging = isDraggingOrHolding,
+            draggedDrawerAppKey = draggedDrawerAppKey,
             onLaunch = ::openApp,
             actionsFor = ::drawerActions,
+            onItemHoldChange = { holding -> isHoldingItem = holding },
+            onStartAppDrag = { app, startRootPos ->
+                if (!checkUnlocked()) return@AppDrawer
+                showMenu = false
+                openFolderId = null
+                dragPosInRoot = startRootPos
+                dragSession = DragSession(DragSource.Drawer(app), app)
+                drawer.snapTo(0f)
+            },
+            onDragApp = { rootPos -> dragPosInRoot = rootPos },
+            onEndAppDrag = { finishDrag() },
         )
+
+        // Capa flotante del icono mientras se arrastra (por encima del escritorio, carpetas y cajón)
+        if (activeDrag != null && activeDrag.previewApp != null) {
+            val iconPx = with(density) { 56.dp.toPx() }
+            Box(
+                Modifier
+                    .offset {
+                        IntOffset(
+                            x = (dragPosInRoot.x - iconPx / 2f).roundToInt(),
+                            y = (dragPosInRoot.y - iconPx / 2f).roundToInt(),
+                        )
+                    }
+                    .graphicsLayer {
+                        scaleX = 1.18f
+                        scaleY = 1.18f
+                        alpha = 0.92f
+                    }
+            ) {
+                Image(
+                    bitmap = activeDrag.previewApp.homeIcon,
+                    contentDescription = activeDrag.previewApp.label,
+                    filterQuality = FilterQuality.Medium,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .let { if (s.iconShape != dev.azagra.launcher_aosp.data.IconShape.DEFAULT) it.clip(iconMaskShape(s.iconShape)) else it },
+                )
+            }
+        }
 
         AnimatedVisibility(
             visible = showSettings,
@@ -874,104 +1208,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 onClose = { showSettings = false },
             )
         }
-    }
-
-    // Diálogo flotante Material You para abrir y editar Carpetas (Trebuchet Folders)
-    val openFolderItem = remember(s.home, openFolderId) {
-        s.home.firstOrNull { it.id == openFolderId && it.kind == ItemKind.FOLDER }
-    }
-    if (openFolderItem != null) {
-        val payload = remember(openFolderItem.data) { FolderPayload.decode(openFolderItem.data) }
-        val defaultTitle = stringResource(R.string.folder_default_name)
-        var folderTitle by remember(openFolderItem.id, payload.title) {
-            mutableStateOf(payload.title.ifBlank { defaultTitle })
-        }
-        val folderApps = remember(payload.apps, appMap) {
-            payload.apps.mapNotNull { appMap[it] }
-        }
-        AlertDialog(
-            onDismissRequest = {
-                if (folderTitle != payload.title) {
-                    edit { st ->
-                        st.copy(
-                            home = st.home.map {
-                                if (it.id == openFolderItem.id) it.copy(data = payload.copy(title = folderTitle).encode()) else it
-                            }
-                        )
-                    }
-                }
-                openFolderId = null
-            },
-            shape = FloatingMenuShape,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            title = {
-                OutlinedTextField(
-                    value = folderTitle,
-                    onValueChange = { newTitle ->
-                        folderTitle = newTitle
-                        edit { st ->
-                            st.copy(
-                                home = st.home.map {
-                                    if (it.id == openFolderItem.id) it.copy(data = payload.copy(title = newTitle).encode()) else it
-                                }
-                            )
-                        }
-                    },
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.folder_rename_hint)) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            },
-            text = {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.heightIn(max = 320.dp),
-                ) {
-                    items(folderApps, key = { it.key }) { app ->
-                        AppIcon(
-                            app = app,
-                            badge = if (s.badgeNumbers) counts[app.pkg] ?: 0 else 0,
-                            showLabel = true,
-                            labelColor = MaterialTheme.colorScheme.onSurface,
-                            iconSize = 52.dp,
-                            useHomeIcon = true,
-                            iconShape = s.iconShape,
-                            actionsProvider = {
-                                listOf(
-                                    MenuAction(ctx.getString(R.string.action_remove_from_folder), Icons.Default.Close) {
-                                        if (!checkUnlocked()) return@MenuAction
-                                        val remaining = payload.apps.filter { it != app.key }
-                                        edit { st ->
-                                            val updatedHome = when {
-                                                remaining.isEmpty() -> st.home.filter { it.id != openFolderItem.id }
-                                                remaining.size == 1 -> st.home.map {
-                                                    if (it.id == openFolderItem.id) it.copy(kind = ItemKind.APP, data = remaining.first()) else it
-                                                }
-                                                else -> st.home.map {
-                                                    if (it.id == openFolderItem.id) it.copy(data = payload.copy(apps = remaining).encode()) else it
-                                                }
-                                            }
-                                            st.copy(home = updatedHome)
-                                        }
-                                        if (remaining.size <= 1) openFolderId = null
-                                    }
-                                ) + common(app)
-                            },
-                            onClick = {
-                                openFolderId = null
-                                openApp(app)
-                            },
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton({ openFolderId = null }) { Text(stringResource(R.string.action_close)) }
-            },
-        )
     }
 
     if (showWidgets) {

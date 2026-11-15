@@ -2,6 +2,7 @@ package dev.azagra.launcher_aosp.ui
 
 import android.appwidget.AppWidgetProviderInfo
 import android.os.Bundle
+import android.util.SizeF
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -41,8 +42,8 @@ private val WidgetItemShape = RoundedCornerShape(20.dp)
 @Composable
 fun WidgetView(id: Int, controller: WidgetController, onLongPress: () -> Unit, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier.clip(RoundedCornerShape(24.dp))) {
-        val w = maxWidth.value.toInt()
-        val h = maxHeight.value.toInt()
+        val w = maxWidth.value
+        val h = maxHeight.value
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
@@ -51,7 +52,7 @@ fun WidgetView(id: Int, controller: WidgetController, onLongPress: () -> Unit, m
             },
             update = { v ->
                 v.onLongPress = onLongPress
-                v.updateAppWidgetSize(Bundle(), w, h, w, h)
+                v.updateAppWidgetSize(Bundle(), listOf(SizeF(w, h)))
             },
         )
     }

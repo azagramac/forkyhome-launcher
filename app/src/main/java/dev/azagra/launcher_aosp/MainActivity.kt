@@ -76,7 +76,8 @@ class MainActivity : ComponentActivity() {
         if (intent.action == Intent.ACTION_MAIN) container.homeEvents.tryEmit(Unit)
     }
 
-    @Deprecated("Necesario para la pantalla de configuración de widgets")
+    @Deprecated("Necesario para AppWidgetHost.startAppWidgetConfigureActivityForResult")
+    @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         widgets.onActivityResult(requestCode, resultCode)

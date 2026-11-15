@@ -130,7 +130,7 @@ fun AppIcon(
                     val longPress = awaitLongPressOrCancellation(down.id)
                     if (longPress == null) {
                         val up = currentEvent.changes.firstOrNull { it.id == down.id }
-                        if (up != null && !up.pressed && !up.isConsumed) {
+                        if (up != null && !up.pressed && (up.position - down.position).getDistance() <= viewConfiguration.touchSlop) {
                             up.consume()
                             currentOnClick()
                         }
@@ -340,11 +340,14 @@ fun FolderIcon(
                     val longPress = awaitLongPressOrCancellation(down.id)
                     if (longPress == null) {
                         val up = currentEvent.changes.firstOrNull { it.id == down.id }
-                        if (up != null && !up.pressed && !up.isConsumed) {
+                        if (up != null && !up.pressed && (up.position - down.position).getDistance() <= viewConfiguration.touchSlop) {
                             up.consume()
                             currentOnClick()
                         }
-                    } else if (enableDrag) {
+                    } else if (!enableDrag) {
+                        longPress.consume()
+                        currentOnClick()
+                    } else {
                         longPress.consume()
                         currentEvent.changes.forEach { it.consume() }
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)

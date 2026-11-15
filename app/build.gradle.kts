@@ -62,9 +62,19 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
-    lint { abortOnError = false }
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
+    packaging {
+        jniLibs {
+            keepDebugSymbols += setOf(
+                "**/libandroidx.graphics.path.so",
+                "**/libdatastore_shared_counter.so",
+            )
+        }
+    }
 
     // Nombre del APK:
     //   debug   -> dev.azagra.launcher-aosp-{versionName}-{versionCode}.apk
@@ -75,6 +85,12 @@ android {
             (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
                 if (isDebug) "$apkBaseName-$appVersionName-$appVersionCode.apk" else "$apkBaseName-$appVersionName.apk"
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 

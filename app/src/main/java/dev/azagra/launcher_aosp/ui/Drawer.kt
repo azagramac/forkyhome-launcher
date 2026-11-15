@@ -35,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,17 +87,26 @@ fun AppDrawer(
     s: LauncherSettings,
     drawer: DrawerState,
     heightPx: Float,
+    isHoldingOrDragging: Boolean,
+    draggedDrawerAppKey: String?,
     onLaunch: (AppInfo) -> Unit,
     actionsFor: (AppInfo) -> List<MenuAction>,
+    onItemHoldChange: (Boolean) -> Unit,
+    onStartAppDrag: (AppInfo, Offset) -> Unit,
+    onDragApp: (Offset) -> Unit,
+    onEndAppDrag: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
     val (bg, on, searchBg) = drawerColors(s)
     val searchIconTint = if (s.drawerBg == DrawerBg.SYSTEM) MaterialTheme.colorScheme.primary else on
     val gridState = rememberLazyGridState()
     val focusManager = LocalFocusManager.current
+    val isDraggingFromDrawer = draggedDrawerAppKey != null
+    val currentHoldingOrDragging by rememberUpdatedState(isHoldingOrDragging)
 
-    LaunchedEffect(drawer.isOpen) {
-        if (!drawer.isOpen) {
+    // Solo reiniciamos la búsqueda y el scroll cuando el cajón está cerrado Y no se está arrastrando un icono desde él
+    LaunchedEffect(drawer.isOpen, isDraggingFromDrawer) {
+        if (!drawer.isOpen && !isDraggingFromDrawer) {
             focusManager.clearFocus()
             if (query.isNotEmpty()) query = ""
             if (gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 0) {
@@ -110,30 +120,30 @@ fun AppDrawer(
         if (query.isBlank()) visibleApps else visibleApps.filter { it.label.contains(query, ignoreCase = true) }
     }
 
-    // Arrastrar el cajón desde dentro de la lista sin interferir con el fling a 120fps de la cuadrícula
+    // Arrastrar el cajón desde dentro de la lista sin interferir con el fling a 120fps ni con el arrastre de iconos
     val connection = remember(drawer, heightPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset =
-                if (source == NestedScrollSource.UserInput && available.y < 0 && drawer.progress < 1f) {
+                if (!currentHoldingOrDragging && source == NestedScrollSource.UserInput && available.y < 0 && drawer.progress < 1f) {
                     drawer.drag(-available.y / heightPx)
                     Offset(0f, available.y)
                 } else Offset.Zero
 
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
-                if (source == NestedScrollSource.UserInput && available.y > 0) {
+                if (!currentHoldingOrDragging && source == NestedScrollSource.UserInput && available.y > 0) {
                     focusManager.clearFocus()
                     drawer.drag(-available.y / heightPx)
                     Offset(0f, available.y)
                 } else Offset.Zero
 
             override suspend fun onPreFling(available: Velocity): Velocity =
-                if (drawer.progress in 0.001f..0.999f) {
+                if (!currentHoldingOrDragging && drawer.progress in 0.001f..0.999f) {
                     drawer.settle(-available.y / heightPx)
                     available
                 } else Velocity.Zero
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
-                if (drawer.progress < 1f && available.y > 0) {
+                if (!currentHoldingOrDragging && drawer.progress < 1f && available.y > 0) {
                     drawer.settle(-available.y / heightPx)
                     available
                 } else Velocity.Zero
@@ -150,8 +160,10 @@ fun AppDrawer(
             .fillMaxSize()
             .graphicsLayer {
                 val p = drawer.progress
-                translationY = (1f - p) * size.height
-                alpha = if (p > 0.001f) 1f else 0f
+                // Si el usuario está arrastrando una app del cajón al escritorio/dock, ocultamos visualmente el cajón
+                // pero mantenemos translationY = 0f hasta soltar el dedo para no alterar las coordenadas del puntero
+                translationY = if (isDraggingFromDrawer) 0f else (1f - p) * size.height
+                alpha = if (isDraggingFromDrawer) 0f else if (p > 0.001f) 1f else 0f
                 shape = DrawerTopShape
                 clip = true
             }
@@ -190,6 +202,7 @@ fun AppDrawer(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 10.dp)
                 .draggable(
+                    enabled = !isHoldingOrDragging,
                     state = rememberDraggableState { dy -> drawer.drag(-dy / heightPx) },
                     orientation = Orientation.Vertical,
                     onDragStopped = { v -> drawer.settle(-v / heightPx) },
@@ -198,6 +211,7 @@ fun AppDrawer(
         LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Fixed(s.columns),
+            userScrollEnabled = !isHoldingOrDragging,
             modifier = Modifier.weight(1f),
             contentPadding = gridPadding,
         ) {
@@ -217,6 +231,15 @@ fun AppDrawer(
                     modifier = Modifier.fillMaxWidth(),
                     useHomeIcon = false,
                     iconShape = s.iconShape,
+                    enableDrag = !s.lockDesktop,
+                    isBeingDragged = draggedDrawerAppKey == app.key,
+                    onPressHoldChange = onItemHoldChange,
+                    onDragStart = { startRootPos ->
+                        focusManager.clearFocus()
+                        onStartAppDrag(app, startRootPos)
+                    },
+                    onDrag = onDragApp,
+                    onDragEnd = onEndAppDrag,
                 )
             }
         }
