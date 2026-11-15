@@ -25,6 +25,11 @@ class DrawerState(private val scope: CoroutineScope) {
         progress = (progress + delta).coerceIn(0f, 1f)
     }
 
+    fun snapTo(target: Float) {
+        job?.cancel()
+        progress = target.coerceIn(0f, 1f)
+    }
+
     /** velocity en "progreso por segundo"; positivo = abriendo. */
     fun settle(velocity: Float) {
         val target = when {
