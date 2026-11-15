@@ -60,9 +60,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.azagra.launcher_aosp.Container
+import dev.azagra.launcher_aosp.R
 import dev.azagra.launcher_aosp.data.AppInfo
 import dev.azagra.launcher_aosp.data.DOCK_MAX
 import dev.azagra.launcher_aosp.data.HOME_COLS
@@ -131,26 +133,26 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         repo.launchApp(ctx, app)
     }
     fun common(app: AppInfo) = listOf(
-        MenuAction("Información") { details(app.pkg) },
-        MenuAction("Desinstalar") { uninstall(app.pkg) },
+        MenuAction(ctx.getString(R.string.action_app_info)) { details(app.pkg) },
+        MenuAction(ctx.getString(R.string.action_uninstall)) { uninstall(app.pkg) },
     )
     fun drawerActions(app: AppInfo): List<MenuAction> = buildList {
-        add(MenuAction("Añadir al escritorio") {
+        add(MenuAction(ctx.getString(R.string.action_add_to_home)) {
             scope.launch {
-                if (store.addHomeItem(ItemKind.APP, app.key, 1, 1, pagerState.currentPage)) toast("Añadido al escritorio")
-                else toast("No hay sitio en el escritorio")
+                if (store.addHomeItem(ItemKind.APP, app.key, 1, 1, pagerState.currentPage)) toast(ctx.getString(R.string.toast_added_to_home))
+                else toast(ctx.getString(R.string.toast_no_space_on_home))
             }
         })
         if (app.key !in s.dock && s.dock.size < DOCK_MAX) {
-            add(MenuAction("Añadir al dock") { edit { it.copy(dock = (it.dock + app.key).take(DOCK_MAX)) } })
+            add(MenuAction(ctx.getString(R.string.action_add_to_dock)) { edit { it.copy(dock = (it.dock + app.key).take(DOCK_MAX)) } })
         }
         addAll(common(app))
     }
     fun homeActions(item: HomeItem, app: AppInfo) = listOf(
-        MenuAction("Quitar del escritorio") { edit { st -> st.copy(home = st.home.filter { it.id != item.id }) } },
+        MenuAction(ctx.getString(R.string.action_remove_from_home)) { edit { st -> st.copy(home = st.home.filter { it.id != item.id }) } },
     ) + common(app)
     fun dockActions(app: AppInfo) = listOf(
-        MenuAction("Quitar del dock") { edit { st -> st.copy(dock = st.dock.filter { it != app.key }) } },
+        MenuAction(ctx.getString(R.string.action_remove_from_dock)) { edit { st -> st.copy(dock = st.dock.filter { it != app.key }) } },
     ) + common(app)
 
     // ---- UI ----
@@ -252,15 +254,15 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     if (showMenu) {
         ModalBottomSheet(onDismissRequest = { showMenu = false }) {
             ListItem(
-                headlineContent = { Text("Widgets") },
+                headlineContent = { Text(stringResource(R.string.menu_widgets)) },
                 modifier = Modifier.clickable { showMenu = false; showWidgets = true },
             )
             ListItem(
-                headlineContent = { Text("Fondo de pantalla") },
+                headlineContent = { Text(stringResource(R.string.menu_wallpaper)) },
                 modifier = Modifier.clickable { showMenu = false; openWallpaperPicker(ctx) },
             )
             ListItem(
-                headlineContent = { Text("Ajustes del launcher") },
+                headlineContent = { Text(stringResource(R.string.menu_launcher_settings)) },
                 modifier = Modifier.clickable { showMenu = false; showSettings = true },
             )
             Spacer(Modifier.height(24.dp))
@@ -278,16 +280,16 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     widgetToRemove?.let { item ->
         AlertDialog(
             onDismissRequest = { widgetToRemove = null },
-            title = { Text("Quitar widget") },
-            text = { Text("¿Quitar este widget del escritorio?") },
+            title = { Text(stringResource(R.string.dialog_remove_widget_title)) },
+            text = { Text(stringResource(R.string.dialog_remove_widget_message)) },
             confirmButton = {
                 TextButton({
                     widgetToRemove = null
                     item.data.toIntOrNull()?.let { widgets.delete(it) }
                     edit { st -> st.copy(home = st.home.filter { it.id != item.id }) }
-                }) { Text("Quitar") }
+                }) { Text(stringResource(R.string.action_remove)) }
             },
-            dismissButton = { TextButton({ widgetToRemove = null }) { Text("Cancelar") } },
+            dismissButton = { TextButton({ widgetToRemove = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

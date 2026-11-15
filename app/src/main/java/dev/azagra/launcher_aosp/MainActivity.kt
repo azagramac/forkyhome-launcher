@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
                 val ok = container.settings.addHomeItem(ItemKind.WIDGET, id.toString(), sx, sy, container.currentPage)
                 if (!ok) {
                     widgets.delete(id)
-                    Toast.makeText(this@MainActivity, "No hay sitio en el escritorio", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, getString(R.string.toast_no_space_on_home), Toast.LENGTH_SHORT).show()
                 }
             }
         }

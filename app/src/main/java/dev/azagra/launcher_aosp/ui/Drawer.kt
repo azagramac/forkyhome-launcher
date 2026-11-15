@@ -38,8 +38,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import dev.azagra.launcher_aosp.R
 import dev.azagra.launcher_aosp.data.AppInfo
 import dev.azagra.launcher_aosp.data.DrawerBg
 import dev.azagra.launcher_aosp.data.LauncherSettings
@@ -121,7 +123,7 @@ fun AppDrawer(
             value = query,
             onValueChange = { query = it },
             singleLine = true,
-            placeholder = { Text("Buscar aplicaciones", color = on.copy(alpha = 0.6f)) },
+            placeholder = { Text(stringResource(R.string.search_apps), color = on.copy(alpha = 0.6f)) },
             leadingIcon = { Icon(Icons.Default.Search, null, tint = on) },
             shape = RoundedCornerShape(28.dp),
             colors = TextFieldDefaults.colors(

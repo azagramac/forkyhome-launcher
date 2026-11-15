@@ -30,10 +30,10 @@ APK: `./gradlew assembleRelease` (firma de debug por defecto; cambia `signingCon
 - Packs de iconos (appfilter.xml) e iconos temáticos
 - Número de notificaciones en el icono (requiere acceso a notificaciones)
 - Selector de fondo de pantalla
+- Soporte multiidioma: Inglés (por defecto) y Español (`values/` y `values-es/`)
 
 ## Pendiente (v2)
 - Arrastrar y soltar para mover iconos y widgets (ahora: quitar y volver a añadir)
 - Redimensionar widgets, carpetas, gestos (doble toque, deslizar abajo)
 - Máscara/fondo de iconos para packs que no cubren una app
 - Baseline Profile (módulo aparte) para arranque y scroll más rápidos
-- Textos en strings.xml (ahora en español dentro del código)

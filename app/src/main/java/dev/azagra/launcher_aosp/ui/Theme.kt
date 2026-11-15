@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.view.WindowCompat
+import dev.azagra.launcher_aosp.R
 import dev.azagra.launcher_aosp.data.ThemeMode
 
 @Composable
@@ -51,7 +52,7 @@ fun notificationAccessGranted(ctx: Context): Boolean =
 
 fun openWallpaperPicker(ctx: Context) {
     ctx.startActivity(
-        Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), "Fondo de pantalla")
+        Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), ctx.getString(R.string.menu_wallpaper))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     )
 }

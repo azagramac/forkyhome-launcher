@@ -23,7 +23,12 @@ android {
         versionName = appVersionName
     }
 
-    // Firma de release: si hay KEYSTORE_FILE en el entorno se usa; si no, se firma con la clave debug.
+    androidResources {
+        localeFilters += listOf("en", "es")
+    }
+
+    // Firma personalizada: si hay KEYSTORE_FILE en el entorno se usa tanto en debug como en release;
+    // si no, se firma con la clave debug por defecto.
     val keystorePath = System.getenv("KEYSTORE_FILE")
     signingConfigs {
         if (keystorePath != null && File(keystorePath).exists()) {
@@ -31,12 +36,16 @@ android {
                 storeFile = File(keystorePath)
                 storePassword = System.getenv("KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
+                keyPassword = System.getenv("KEY_PASSWORD")?.takeIf { it.isNotEmpty() }
+                    ?: System.getenv("KEYSTORE_PASSWORD")
             }
         }
     }
 
     buildTypes {
+        debug {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

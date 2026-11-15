@@ -1,3 +1,62 @@
 <resources>
     <string name="app_name">AOSP Launcher</string>
+
+    <!-- Drawer -->
+    <string name="search_apps">Search apps</string>
+
+    <!-- Context menu & actions -->
+    <string name="action_app_info">App info</string>
+    <string name="action_uninstall">Uninstall</string>
+    <string name="action_add_to_home">Add to home screen</string>
+    <string name="action_add_to_dock">Add to dock</string>
+    <string name="action_remove_from_home">Remove from home screen</string>
+    <string name="action_remove_from_dock">Remove from dock</string>
+    <string name="toast_added_to_home">Added to home screen</string>
+    <string name="toast_no_space_on_home">No space left on home screen</string>
+
+    <!-- Home long-press sheet & dialogs -->
+    <string name="menu_widgets">Widgets</string>
+    <string name="menu_wallpaper">Wallpaper</string>
+    <string name="menu_launcher_settings">Launcher settings</string>
+    <string name="dialog_remove_widget_title">Remove widget</string>
+    <string name="dialog_remove_widget_message">Remove this widget from the home screen?</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_close">Close</string>
+    <string name="action_back">Back</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="section_appearance">Appearance</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="settings_material_you">Material You</string>
+    <string name="settings_material_you_desc">Dynamic colors extracted from your wallpaper</string>
+    <string name="settings_change_wallpaper">Change wallpaper</string>
+
+    <string name="section_app_drawer">App drawer</string>
+    <string name="drawer_bg_system">System</string>
+    <string name="drawer_bg_white">White</string>
+    <string name="drawer_bg_black">Black</string>
+    <string name="drawer_bg_dark">Dark</string>
+    <string name="settings_bg_opacity">Background opacity</string>
+    <string name="settings_columns">Columns</string>
+    <string name="settings_show_labels">Show labels</string>
+
+    <string name="section_icons">Icons</string>
+    <string name="settings_icon_pack_value">Icon pack: %1$s</string>
+    <string name="icon_pack_default">Default</string>
+    <string name="icon_pack_default_system">Default (system)</string>
+    <string name="settings_themed_icons">Themed icons</string>
+    <string name="settings_themed_icons_desc">Use monochrome icon layer tinted with Material You</string>
+    <string name="settings_badge_numbers">Notification count</string>
+    <string name="settings_badge_numbers_desc">Show how many notifications each app has</string>
+    <string name="settings_grant_notification_access">Grant notification access</string>
+    <string name="dialog_icon_pack_title">Icon pack</string>
+    <string name="dialog_no_icon_packs">No icon packs installed. Install one from the store (Nova/ADW/Apex).</string>
+
+    <string name="section_home_screen">Home screen</string>
+    <string name="settings_pages">Pages</string>
+    <string name="settings_set_default_launcher">Set as default launcher</string>
 </resources>
