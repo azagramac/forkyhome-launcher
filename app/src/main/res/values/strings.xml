@@ -54,6 +54,7 @@
     <string name="drawer_bg_dark">Dark</string>
     <string name="settings_bg_opacity">Background opacity</string>
     <string name="settings_columns">Columns</string>
+    <string name="settings_drawer_icon_size">Drawer icon size</string>
     <string name="settings_show_labels">Show labels in drawer</string>
 
     <string name="section_icons">Icons</string>
@@ -78,6 +79,7 @@
     <string name="settings_pages">Pages</string>
     <string name="settings_home_columns">Grid columns</string>
     <string name="settings_home_rows">Grid rows</string>
+    <string name="settings_home_icon_size">Home icon size</string>
     <string name="settings_show_home_labels">Show labels on home screen</string>
     <string name="settings_lock_desktop">Lock home screen</string>
     <string name="settings_lock_desktop_desc">Prevent moving, adding, or removing items on the home screen</string>

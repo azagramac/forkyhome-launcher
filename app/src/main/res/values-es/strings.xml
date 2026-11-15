@@ -54,6 +54,7 @@
     <string name="drawer_bg_dark">Oscuro</string>
     <string name="settings_bg_opacity">Opacidad del fondo</string>
     <string name="settings_columns">Columnas</string>
+    <string name="settings_drawer_icon_size">Tamaño de iconos del cajón</string>
     <string name="settings_show_labels">Mostrar nombres en el cajón</string>
 
     <string name="section_icons">Iconos</string>
@@ -78,6 +79,7 @@
     <string name="settings_pages">Páginas</string>
     <string name="settings_home_columns">Columnas del escritorio</string>
     <string name="settings_home_rows">Filas del escritorio</string>
+    <string name="settings_home_icon_size">Tamaño de iconos del escritorio</string>
     <string name="settings_show_home_labels">Mostrar nombres en el escritorio</string>
     <string name="settings_lock_desktop">Bloquear escritorio</string>
     <string name="settings_lock_desktop_desc">Impide mover, añadir o eliminar elementos del escritorio</string>

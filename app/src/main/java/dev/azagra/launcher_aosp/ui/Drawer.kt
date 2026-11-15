@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -57,6 +58,7 @@ import dev.azagra.launcher_aosp.R
 import dev.azagra.launcher_aosp.data.AppInfo
 import dev.azagra.launcher_aosp.data.DrawerBg
 import dev.azagra.launcher_aosp.data.LauncherSettings
+import dev.azagra.launcher_aosp.data.resolveIconSizeDp
 
 private val DrawerTopShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 private val SearchBarShape = RoundedCornerShape(28.dp)
@@ -225,12 +227,16 @@ fun AppDrawer(
                     onDragStopped = { v -> drawer.settle(-v / dragSpanPx) },
                 ),
         )
+        val drawerIconSize = remember(s.columns, s.drawerIconScale) {
+            resolveIconSizeDp(s.columns, s.drawerIconScale).dp
+        }
         LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Fixed(s.columns),
             userScrollEnabled = !isHoldingOrDragging,
             modifier = Modifier.weight(1f),
             contentPadding = gridPadding,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             items(
                 items = filtered,
@@ -242,7 +248,7 @@ fun AppDrawer(
                     badge = if (s.badgeNumbers) counts[app.pkg] ?: 0 else 0,
                     showLabel = s.showLabels,
                     labelColor = on,
-                    iconSize = 56.dp,
+                    iconSize = drawerIconSize,
                     actionsProvider = { actionsFor(app) },
                     onClick = { onLaunch(app) },
                     modifier = Modifier

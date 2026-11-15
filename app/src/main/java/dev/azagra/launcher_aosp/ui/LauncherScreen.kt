@@ -122,6 +122,7 @@ import dev.azagra.launcher_aosp.data.HomeItem
 import dev.azagra.launcher_aosp.data.IconConfig
 import dev.azagra.launcher_aosp.data.ItemKind
 import dev.azagra.launcher_aosp.data.LauncherSettings
+import dev.azagra.launcher_aosp.data.resolveIconSizeDp
 import dev.azagra.launcher_aosp.notif.NotificationCounter
 import dev.azagra.launcher_aosp.widgets.WidgetController
 import kotlin.math.roundToInt
@@ -848,6 +849,9 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
 
             // Dock Material You (máx. 5) con soporte de reordenación por arrastre
             val dockBorderColor = if (targetDockSlot != null) MaterialTheme.colorScheme.primary else Color.Transparent
+            val dockIconSize = remember(s.homeIconScale) {
+                (52f * s.homeIconScale.coerceIn(0.85f, 1.15f)).coerceIn(42f, 58f).dp
+            }
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -879,7 +883,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                             badge = if (s.badgeNumbers) counts[app.pkg] ?: 0 else 0,
                             showLabel = false,
                             labelColor = Color.Unspecified,
-                            iconSize = 52.dp,
+                            iconSize = dockIconSize,
                             actionsProvider = { dockActions(app) },
                             onClick = { openApp(app) },
                             useHomeIcon = true,
@@ -1339,6 +1343,9 @@ private fun HomePage(
     ) {
         val cw = maxWidth / homeCols
         val ch = maxHeight / homeRows
+        val homeIconSize = remember(homeCols, s.homeIconScale) {
+            resolveIconSizeDp(homeCols, s.homeIconScale).dp
+        }
 
         // Indicador visual Material You de la celda destino (círculo si creará carpeta, celda redondeada si moverá)
         if (highlightedCell != null) {
@@ -1399,7 +1406,7 @@ private fun HomePage(
                                 badge = if (s.badgeNumbers) counts[app.pkg] ?: 0 else 0,
                                 showLabel = s.showHomeLabels,
                                 labelColor = Color.White,
-                                iconSize = 56.dp,
+                                iconSize = homeIconSize,
                                 actionsProvider = { actionsFor(item, app) },
                                 onClick = { onLaunch(app) },
                                 modifier = Modifier.fillMaxWidth(),
@@ -1424,7 +1431,7 @@ private fun HomePage(
                                 previewApps = previewApps,
                                 showLabel = s.showHomeLabels,
                                 labelColor = Color.White,
-                                iconSize = 56.dp,
+                                iconSize = homeIconSize,
                                 useHomeIcon = true,
                                 enableDrag = !s.lockDesktop,
                                 isBeingDragged = draggedHomeItemId == item.id,

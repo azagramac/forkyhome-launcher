@@ -115,6 +115,8 @@ fun SettingsScreen(
         onPauseOrDispose { }
     }
     var alpha by remember(s.drawerAlpha) { mutableFloatStateOf(s.drawerAlpha) }
+    var homeIconScale by remember(s.homeIconScale) { mutableFloatStateOf(s.homeIconScale) }
+    var drawerIconScale by remember(s.drawerIconScale) { mutableFloatStateOf(s.drawerIconScale) }
     var packDialog by remember { mutableStateOf(false) }
     var privacyDialog by remember { mutableStateOf(false) }
     val roleManager = remember { ctx.getSystemService(RoleManager::class.java) }
@@ -367,6 +369,33 @@ fun SettingsScreen(
                         onValueChange = { v -> onChange { it.copy(homeRows = v) } },
                     )
                     CardDivider()
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                stringResource(R.string.settings_home_icon_size),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                "${(homeIconScale * 100).roundToInt()}%",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                        Slider(
+                            value = homeIconScale,
+                            onValueChange = { homeIconScale = (it * 20).roundToInt() / 20f },
+                            onValueChangeFinished = { onChange { it.copy(homeIconScale = homeIconScale) } },
+                            valueRange = 0.80f..1.20f,
+                            steps = 7,
+                        )
+                    }
+                    CardDivider()
                     SwitchRow(
                         title = stringResource(R.string.settings_show_home_labels),
                         subtitle = null,
@@ -448,6 +477,35 @@ fun SettingsScreen(
                         range = 4..6,
                         onValueChange = { v -> onChange { it.copy(columns = v) } },
                     )
+
+                    CardDivider()
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                stringResource(R.string.settings_drawer_icon_size),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                "${(drawerIconScale * 100).roundToInt()}%",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                        Slider(
+                            value = drawerIconScale,
+                            onValueChange = { drawerIconScale = (it * 20).roundToInt() / 20f },
+                            onValueChangeFinished = { onChange { it.copy(drawerIconScale = drawerIconScale) } },
+                            valueRange = 0.80f..1.20f,
+                            steps = 7,
+                        )
+                    }
 
                     CardDivider()
 

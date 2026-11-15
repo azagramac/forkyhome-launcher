@@ -96,10 +96,12 @@ data class LauncherSettings(
     val themedIcons: Boolean = false,
     val badgeNumbers: Boolean = true,
     val columns: Int = 5,
+    val drawerIconScale: Float = 1.0f,
     val showLabels: Boolean = true,
     val homePages: Int = 2,
     val homeCols: Int = HOME_COLS,
     val homeRows: Int = HOME_ROWS,
+    val homeIconScale: Float = 1.0f,
     val showHomeLabels: Boolean = true,
     val lockDesktop: Boolean = false,
     val autoAddNewApps: Boolean = false,
@@ -138,4 +140,23 @@ fun findFree(
         }
     }
     return null
+}
+
+/**
+ * Calcula el tamaño óptimo del icono en dp combinando:
+ * 1) un tamaño base adaptado al número de columnas (4 cols -> 60dp, 5 cols -> 54dp, 6 cols -> 48dp)
+ * 2) el multiplicador elegido por el usuario (0.80f..1.20f), limitado para que nunca se solapen.
+ */
+fun resolveIconSizeDp(cols: Int, scale: Float): Float {
+    val base = when {
+        cols <= 4 -> 60f
+        cols == 5 -> 54f
+        else -> 48f
+    }
+    val maxAllowed = when {
+        cols <= 4 -> 68f
+        cols == 5 -> 60f
+        else -> 54f
+    }
+    return (base * scale.coerceIn(0.80f, 1.20f)).coerceIn(38f, maxAllowed)
 }
