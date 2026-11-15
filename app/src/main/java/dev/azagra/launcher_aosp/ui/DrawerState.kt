@@ -11,31 +11,41 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-/** progress: 0 = cerrado, 1 = abierto. Se arrastra con el dedo y se asienta con un muelle rápido sin rebote. */
+/**
+ * Controla la apertura y cierre del cajón de aplicaciones (0f = cerrado, 1f = abierto)
+ * con física de muelle suave e histéresis direccional estilo Pixel Launcher / Trebuchet.
+ */
 @Stable
 class DrawerState(private val scope: CoroutineScope) {
     var progress by mutableFloatStateOf(0f)
         private set
 
-    val isOpen: Boolean get() = progress > 0.001f
+    private var startProgress = 0f
+    val isOpen: Boolean get() = progress > 0.01f
     private var job: Job? = null
 
     fun drag(delta: Float) {
-        job?.cancel()
+        if (job?.isActive == true) {
+            job?.cancel()
+            startProgress = progress
+        }
         progress = (progress + delta).coerceIn(0f, 1f)
     }
 
     fun snapTo(target: Float) {
         job?.cancel()
-        progress = target.coerceIn(0f, 1f)
+        val clamped = target.coerceIn(0f, 1f)
+        progress = clamped
+        startProgress = clamped
     }
 
     /** velocity en "progreso por segundo"; positivo = abriendo. */
     fun settle(velocity: Float) {
+        val threshold = if (startProgress < 0.5f) 0.25f else 0.75f
         val target = when {
-            velocity > 0.45f -> 1f
-            velocity < -0.45f -> 0f
-            progress > 0.45f -> 1f
+            velocity > 0.22f -> 1f
+            velocity < -0.22f -> 0f
+            progress > threshold -> 1f
             else -> 0f
         }
         animateTo(target, velocity)
@@ -43,17 +53,25 @@ class DrawerState(private val scope: CoroutineScope) {
 
     fun animateTo(target: Float, initialVelocity: Float = 0f) {
         job?.cancel()
-        if (progress == target) return
+        val clampedTarget = target.coerceIn(0f, 1f)
+        if (progress == clampedTarget) {
+            startProgress = clampedTarget
+            return
+        }
         job = scope.launch {
             animate(
                 initialValue = progress,
-                targetValue = target,
-                initialVelocity = initialVelocity.coerceIn(-8f, 8f),
+                targetValue = clampedTarget,
+                initialVelocity = initialVelocity.coerceIn(-6f, 6f),
                 animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMedium,
+                    dampingRatio = 0.92f,
+                    stiffness = 380f,
+                    visibilityThreshold = 0.001f,
                 ),
-            ) { v, _ -> progress = v }
+            ) { v, _ ->
+                progress = v
+            }
+            startProgress = clampedTarget
         }
     }
 }

@@ -1,5 +1,7 @@
 package dev.azagra.launcher_aosp.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -106,11 +108,29 @@ fun AppIcon(
     onDragEnd: () -> Unit = {},
 ) {
     var menu by remember { mutableStateOf(false) }
+    var pressingDown by remember { mutableStateOf(false) }
     var pressingLong by remember { mutableStateOf(false) }
     var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     val haptics = LocalHapticFeedback.current
     val bitmap = if (useHomeIcon) app.homeIcon else app.icon
     val clipShape = remember(iconShape) { iconMaskShape(iconShape) }
+
+    val targetScale = when {
+        isBeingDragged -> 0.85f
+        pressingLong -> 1.12f
+        pressingDown -> 0.93f
+        else -> 1f
+    }
+    val animatedScale by animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = spring(dampingRatio = 0.72f, stiffness = 550f),
+        label = "iconScale",
+    )
+    val animatedAlpha by animateFloatAsState(
+        targetValue = if (isBeingDragged) 0.18f else 1f,
+        animationSpec = spring(stiffness = 500f),
+        label = "iconAlpha",
+    )
 
     // Garantiza que pointerInput siempre invoque los callbacks con el estado más reciente de la pantalla
     val currentOnClick by rememberUpdatedState(onClick)
@@ -127,7 +147,12 @@ fun AppIcon(
                 val dragThresholdPx = 4.dp.toPx()
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    val longPress = awaitLongPressOrCancellation(down.id)
+                    pressingDown = true
+                    val longPress = try {
+                        awaitLongPressOrCancellation(down.id)
+                    } finally {
+                        pressingDown = false
+                    }
                     if (longPress == null) {
                         val up = currentEvent.changes.firstOrNull { it.id == down.id }
                         if (up != null && !up.pressed && (up.position - down.position).getDistance() <= viewConfiguration.touchSlop) {
@@ -182,10 +207,9 @@ fun AppIcon(
                 }
             }
             .graphicsLayer {
-                alpha = if (isBeingDragged) 0.2f else 1f
-                val s = if (pressingLong && !isBeingDragged) 1.1f else 1f
-                scaleX = s
-                scaleY = s
+                alpha = animatedAlpha
+                scaleX = animatedScale
+                scaleY = animatedScale
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -319,8 +343,26 @@ fun FolderIcon(
     modifier: Modifier = Modifier,
 ) {
     var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var pressingDown by remember { mutableStateOf(false) }
     var pressingLong by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
+
+    val targetScale = when {
+        isBeingDragged -> 0.85f
+        pressingLong -> 1.12f
+        pressingDown -> 0.93f
+        else -> 1f
+    }
+    val animatedScale by animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = spring(dampingRatio = 0.72f, stiffness = 550f),
+        label = "folderScale",
+    )
+    val animatedAlpha by animateFloatAsState(
+        targetValue = if (isBeingDragged) 0.18f else 1f,
+        animationSpec = spring(stiffness = 500f),
+        label = "folderAlpha",
+    )
 
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnPressHoldChange by rememberUpdatedState(onPressHoldChange)
@@ -337,7 +379,12 @@ fun FolderIcon(
                 val dragThresholdPx = 4.dp.toPx()
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    val longPress = awaitLongPressOrCancellation(down.id)
+                    pressingDown = true
+                    val longPress = try {
+                        awaitLongPressOrCancellation(down.id)
+                    } finally {
+                        pressingDown = false
+                    }
                     if (longPress == null) {
                         val up = currentEvent.changes.firstOrNull { it.id == down.id }
                         if (up != null && !up.pressed && (up.position - down.position).getDistance() <= viewConfiguration.touchSlop) {
@@ -389,10 +436,9 @@ fun FolderIcon(
                 }
             }
             .graphicsLayer {
-                alpha = if (isBeingDragged) 0.2f else 1f
-                val s = if (pressingLong && !isBeingDragged) 1.1f else 1f
-                scaleX = s
-                scaleY = s
+                alpha = animatedAlpha
+                scaleX = animatedScale
+                scaleY = animatedScale
             },
         contentAlignment = Alignment.Center,
     ) {

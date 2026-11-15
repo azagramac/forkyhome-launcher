@@ -12,9 +12,13 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -701,6 +705,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wPx = with(density) { maxWidth.toPx() }
         val hPx = with(density) { maxHeight.toPx() }
+        val dragSpanPx = remember(hPx) { (hPx * 0.68f).coerceAtLeast(1f) }
         val edgeZonePx = with(density) { 38.dp.toPx() }
         var downwardPullPx by remember { mutableStateOf(0f) }
 
@@ -721,34 +726,36 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             }
         }
 
-        // Escritorio: se atenúa y encoge un poco al abrir el cajón (pero vuelve a 1f en cuanto arrastramos una app)
+        // Escritorio: transición fluida de escala, opacidad y paralaje al abrir/cerrar el cajón
         Column(
             Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    val p = if (activeDrag != null) 0f else drawer.progress
-                    alpha = 1f - p
-                    scaleX = 1f - 0.06f * p
-                    scaleY = 1f - 0.06f * p
+                    val p = drawer.progress.coerceIn(0f, 1f)
+                    alpha = (1f - p * 1.1f).coerceIn(0f, 1f)
+                    val sScale = 1f - 0.06f * p
+                    scaleX = sScale
+                    scaleY = sScale
+                    translationY = -p * 28.dp.toPx()
                 }
                 .draggable(
                     enabled = !isDraggingOrHolding && openFolderId == null,
                     state = rememberDraggableState { dy ->
                         if (dy < 0f || drawer.progress > 0f) {
                             downwardPullPx = 0f
-                            drawer.drag(-dy / hPx)
+                            drawer.drag(-dy / dragSpanPx)
                         } else if (s.swipeDownNotifications) {
                             downwardPullPx += dy
                         }
                     },
                     orientation = Orientation.Vertical,
                     onDragStopped = { v ->
-                        if (drawer.progress == 0f && s.swipeDownNotifications && (downwardPullPx > hPx * 0.12f || v > 900f)) {
+                        if (drawer.progress == 0f && s.swipeDownNotifications && (downwardPullPx > hPx * 0.11f || v > 850f)) {
                             downwardPullPx = 0f
                             expandNotificationsPanel(ctx)
                         } else {
                             downwardPullPx = 0f
-                            drawer.settle(-v / hPx)
+                            drawer.settle(-v / dragSpanPx)
                         }
                     },
                 )
@@ -1129,7 +1136,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         }
 
         // Mantenemos AppDrawer montado y trasladado por GPU (graphicsLayer).
-        // Al arrastrar una app del cajón sin soltar, el cajón se oculta automáticamente y deja colocarla en el escritorio o dock.
+        // Al arrastrar una app del cajón sin soltar, el cajón se cierra con animación suave y deja colocarla en el escritorio o dock.
         AppDrawer(
             apps = apps,
             counts = counts,
@@ -1147,7 +1154,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 openFolderId = null
                 dragPosInRoot = startRootPos
                 dragSession = DragSession(DragSource.Drawer(app), app)
-                drawer.snapTo(0f)
+                drawer.animateTo(0f)
             },
             onDragApp = { rootPos -> dragPosInRoot = rootPos },
             onEndAppDrag = { finishDrag() },
@@ -1342,9 +1349,19 @@ private fun HomePage(
                     it.col == hCol && it.row == hRow
             }
             val shape = if (hasOccupant && inCenter) CircleShape else CellHighlightShape
+            val animHighlightX by animateDpAsState(
+                targetValue = cw * hCol,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+                label = "highlightX",
+            )
+            val animHighlightY by animateDpAsState(
+                targetValue = ch * hRow,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+                label = "highlightY",
+            )
             Box(
                 Modifier
-                    .offset(cw * hCol, ch * hRow)
+                    .offset(animHighlightX, animHighlightY)
                     .size(cw, ch)
                     .padding(6.dp)
                     .clip(shape)
@@ -1358,9 +1375,19 @@ private fun HomePage(
 
         pageItems.forEach { item ->
             key(item.id) {
+                val animX by animateDpAsState(
+                    targetValue = cw * item.col,
+                    animationSpec = spring(dampingRatio = 0.85f, stiffness = 420f),
+                    label = "itemCol",
+                )
+                val animY by animateDpAsState(
+                    targetValue = ch * item.row,
+                    animationSpec = spring(dampingRatio = 0.85f, stiffness = 420f),
+                    label = "itemRow",
+                )
                 Box(
                     Modifier
-                        .offset(cw * item.col, ch * item.row)
+                        .offset(animX, animY)
                         .size(cw * item.spanX, ch * item.spanY)
                         .padding(2.dp),
                     contentAlignment = Alignment.Center,

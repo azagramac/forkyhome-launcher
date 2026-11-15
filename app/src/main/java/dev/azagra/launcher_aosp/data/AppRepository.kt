@@ -141,12 +141,15 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
     }
 
     private fun render(info: LauncherActivityInfo, c: IconConfig): Pair<ImageBitmap, ImageBitmap> {
-        val fromPack = packs.icon(info.componentName)
-        val base: Drawable = fromPack ?: info.getIcon(0)
-        val normalBitmap = base.toBitmap(ICON_PX, ICON_PX).asImageBitmap()
+        val systemDrawable: Drawable = info.getIcon(0)
+        val packBitmap = if (c.pack != null) {
+            packs.renderBitmap(info.componentName, systemDrawable, ICON_PX)?.asImageBitmap()
+        } else null
+
+        val normalBitmap = packBitmap ?: systemDrawable.toBitmap(ICON_PX, ICON_PX).asImageBitmap()
         val homeBitmap =
-            if (fromPack == null && c.themed && base is AdaptiveIconDrawable) {
-                themed(base, c.dark)?.toBitmap(ICON_PX, ICON_PX)?.asImageBitmap() ?: normalBitmap
+            if (packBitmap == null && c.themed && systemDrawable is AdaptiveIconDrawable) {
+                themed(systemDrawable, c.dark)?.toBitmap(ICON_PX, ICON_PX)?.asImageBitmap() ?: normalBitmap
             } else {
                 normalBitmap
             }
