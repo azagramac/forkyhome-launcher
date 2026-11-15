@@ -5,6 +5,7 @@ on:
     branches: [main, master]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -15,7 +16,7 @@ concurrency:
 
 jobs:
   debug-apk:
-    name: 🤖 Compilar APK Debug
+    name: 🤖 Compilar APK Debug y Tests Unitarios
     runs-on: ubuntu-latest
     env:
       KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -64,19 +65,24 @@ jobs:
           fi
           echo "✅ Keystore debug cargado desde GitHub Secrets."
 
+      - name: 🧪 Ejecutar tests unitarios (Debug)
+        run: gradle testDebugUnitTest --stacktrace
+
       - name: 🛠️ Compilar APK debug
         run: gradle assembleDebug -PversionCode="${{ github.run_number }}" --stacktrace
 
-      - name: 📊 Generar resumen de compilación
+      - name: 📊 Generar resumen de tests y compilación
         run: |
           APK_FILE=$(ls app/build/outputs/apk/debug/*.apk | head -n 1)
           APK_NAME=$(basename "$APK_FILE")
           APK_SIZE=$(du -h "$APK_FILE" | cut -f1)
           APK_SHA256=$(sha256sum "$APK_FILE" | cut -d' ' -f1)
+          TESTS_COUNT=$(grep -h -o 'tests="[0-9]*"' app/build/test-results/testDebugUnitTest/*.xml 2>/dev/null | head -n1 | tr -dc '0-9')
           {
-            echo "### 🤖 Resultado de compilación (Debug)"
+            echo "### 🤖 Resultado de compilación y tests (Debug)"
             echo "| Campo | Valor |"
             echo "| :--- | :--- |"
+            echo "| 🧪 **Tests unitarios** | ✅ Superados (\`${TESTS_COUNT:-OK}\` tests) |"
             echo "| 📦 **Archivo** | \`$APK_NAME\` |"
             echo "| 📏 **Tamaño** | \`$APK_SIZE\` |"
             echo "| 🔢 **Version Code** | \`${{ github.run_number }}\` |"

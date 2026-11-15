@@ -14,8 +14,14 @@ permissions:
   contents: write
 
 jobs:
+  debug-and-test:
+    name: 🧪 Compilar Debug y pasar Tests Unitarios
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+
   release:
     name: 📦 Compilar y publicar Release
+    needs: debug-and-test
     runs-on: ubuntu-latest
     env:
       KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -99,6 +105,7 @@ jobs:
             echo "### 🚀 Resumen de Release (\`$TAG\`)"
             echo "| Campo | Valor |"
             echo "| :--- | :--- |"
+            echo "| 🧪 **Pre-requisito Debug + Tests** | ✅ Verificado |"
             echo "| 🏷️ **Versión** | \`$VERSION\` (\`versionCode: ${{ github.run_number }}\`) |"
             echo "| 📦 **APK** | \`$APK_NAME\` |"
             echo "| 📏 **Tamaño** | \`$APK_SIZE\` |"
