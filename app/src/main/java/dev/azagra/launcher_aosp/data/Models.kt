@@ -58,7 +58,11 @@ data class FolderPayload(
     val apps: List<String>,
 ) {
     fun encode(): String {
-        val safeTitle = title.replace(";", " ").replace("|", " ")
+        val safeTitle = title
+            .replace(";", " ")
+            .replace("\t", " ")
+            .replace("\n", " ")
+            .replace("\r", " ")
         return "$safeTitle;${apps.joinToString(",")}"
     }
 
