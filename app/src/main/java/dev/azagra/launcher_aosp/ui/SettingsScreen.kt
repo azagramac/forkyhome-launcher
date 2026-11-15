@@ -54,6 +54,7 @@ import dev.azagra.launcher_aosp.data.DrawerBg
 import dev.azagra.launcher_aosp.data.IconPacks
 import dev.azagra.launcher_aosp.data.LauncherSettings
 import dev.azagra.launcher_aosp.data.ThemeMode
+import dev.azagra.launcher_aosp.notif.NotificationCounter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +65,9 @@ fun SettingsScreen(
     onClose: () -> Unit,
 ) {
     val ctx = LocalContext.current
+    val hasNotifService = remember {
+        ctx.packageManager.resolveService(Intent(ctx, NotificationCounter::class.java), 0) != null
+    }
     var notifEnabled by remember { mutableStateOf(notificationAccessGranted(ctx)) }
     LifecycleResumeEffect(Unit) {
         notifEnabled = notificationAccessGranted(ctx)
@@ -141,18 +145,20 @@ fun SettingsScreen(
                 ) { v ->
                     onChange { it.copy(themedIcons = v) }
                 }
-                SwitchRow(
-                    stringResource(R.string.settings_badge_numbers),
-                    stringResource(R.string.settings_badge_numbers_desc),
-                    s.badgeNumbers,
-                ) { v ->
-                    onChange { it.copy(badgeNumbers = v) }
-                }
-                if (s.badgeNumbers && !notifEnabled) {
-                    Button(
-                        { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
-                        Modifier.fillMaxWidth(),
-                    ) { Text(stringResource(R.string.settings_grant_notification_access)) }
+                if (hasNotifService) {
+                    SwitchRow(
+                        stringResource(R.string.settings_badge_numbers),
+                        stringResource(R.string.settings_badge_numbers_desc),
+                        s.badgeNumbers,
+                    ) { v ->
+                        onChange { it.copy(badgeNumbers = v) }
+                    }
+                    if (s.badgeNumbers && !notifEnabled) {
+                        Button(
+                            { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
+                            Modifier.fillMaxWidth(),
+                        ) { Text(stringResource(R.string.settings_grant_notification_access)) }
+                    }
                 }
 
                 Section(stringResource(R.string.section_home_screen))

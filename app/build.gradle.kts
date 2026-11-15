@@ -44,13 +44,17 @@ android {
 
     buildTypes {
         debug {
-            signingConfigs.findByName("release")?.let { signingConfig = it }
+            signingConfigs.findByName("release")?.let {
+                signingConfig = it
+                // En CI evitamos android:debuggable="true" para que Play Protect no bloquee el APK al instalarlo manualmente
+                isDebuggable = false
+            }
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 

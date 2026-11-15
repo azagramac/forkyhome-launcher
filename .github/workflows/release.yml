@@ -53,30 +53,28 @@ jobs:
         with:
           gradle-version: 8.14
 
-      - name: 🔐 Preparar firma de la aplicación
+      - name: 🔐 Preparar firma de producción
         env:
           KEYSTORE_RELEASE_B64: ${{ secrets.ANDROID_KEYSTORE_RELEASE_BASE64 }}
           KEYSTORE_FALLBACK_B64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           B64="${KEYSTORE_RELEASE_B64:-$KEYSTORE_FALLBACK_B64}"
-          if [ -n "$B64" ]; then
-            JKS="$RUNNER_TEMP/release.jks"
-            echo "$B64" | base64 -d > "$JKS"
-            echo "KEYSTORE_FILE=$JKS" >> "$GITHUB_ENV"
-            if [ -z "$KEY_ALIAS" ] || ! keytool -list -keystore "$JKS" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
-              DETECTED_ALIAS=$(keytool -list -keystore "$JKS" -storepass "$KEYSTORE_PASSWORD" 2>/dev/null | grep -i "PrivateKeyEntry" | head -n1 | cut -d',' -f1)
-              [ -n "$DETECTED_ALIAS" ] && echo "KEY_ALIAS=$DETECTED_ALIAS" >> "$GITHUB_ENV"
-            fi
-            echo "SIGNING_MODE=🔐 Keystore de producción (ANDROID_KEYSTORE_RELEASE_BASE64)" >> "$GITHUB_ENV"
-            echo "✅ Firmando con tu keystore de producción."
-          else
-            echo "::warning::⚠️ Sin secrets de firma: el APK se firma con una clave debug temporal y NO se podrá actualizar encima de versiones anteriores."
-            echo "SIGNING_MODE=⚠️ Clave debug temporal" >> "$GITHUB_ENV"
-            mkdir -p ~/.android
-            [ -f ~/.android/debug.keystore ] || keytool -genkeypair -v -keystore ~/.android/debug.keystore \
-              -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
-              -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          if [ -z "$B64" ]; then
+            echo "::error::❌ Falta el secret ANDROID_KEYSTORE_RELEASE_BASE64 (o KEYSTORE_BASE64) en GitHub Secrets."
+            exit 1
           fi
+          if [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::❌ Falta el secret KEYSTORE_PASSWORD en GitHub Secrets."
+            exit 1
+          fi
+          JKS="$RUNNER_TEMP/release.jks"
+          echo "$B64" | base64 -d > "$JKS"
+          echo "KEYSTORE_FILE=$JKS" >> "$GITHUB_ENV"
+          if [ -z "$KEY_ALIAS" ] || ! keytool -list -keystore "$JKS" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+            DETECTED_ALIAS=$(keytool -list -keystore "$JKS" -storepass "$KEYSTORE_PASSWORD" 2>/dev/null | grep -i "PrivateKeyEntry" | head -n1 | cut -d',' -f1)
+            [ -n "$DETECTED_ALIAS" ] && echo "KEY_ALIAS=$DETECTED_ALIAS" >> "$GITHUB_ENV"
+          fi
+          echo "✅ Keystore de producción cargado desde GitHub Secrets."
 
       - name: 🛠️ Compilar APK release
         run: gradle assembleRelease -PversionName="$VERSION" -PversionCode="${{ github.run_number }}" --stacktrace
@@ -104,11 +102,11 @@ jobs:
             echo "| 🏷️ **Versión** | \`$VERSION\` (\`versionCode: ${{ github.run_number }}\`) |"
             echo "| 📦 **APK** | \`$APK_NAME\` |"
             echo "| 📏 **Tamaño** | \`$APK_SIZE\` |"
-            echo "| 🔑 **Firma** | $SIGNING_MODE |"
+            echo "| 🔑 **Firma** | 🔐 Keystore de producción (\`ANDROID_KEYSTORE_RELEASE_BASE64\`) |"
             echo "| 🔒 **SHA-256** | \`$APK_SHA256\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: 🧹 Limpiar keystore temporal
+      - name: 🧹 Limpiar keystore del runner
         if: always()
         run: rm -f "$RUNNER_TEMP/release.jks"
 

@@ -41,26 +41,28 @@ jobs:
         with:
           gradle-version: 8.14
 
-      - name: 🔐 Preparar firma debug
+      - name: 🔐 Preparar firma debug desde Secrets
         env:
           KEYSTORE_DEBUG_B64: ${{ secrets.ANDROID_KEYSTORE_DEBUG_BASE64 }}
           KEYSTORE_FALLBACK_B64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           B64="${KEYSTORE_DEBUG_B64:-$KEYSTORE_FALLBACK_B64}"
-          if [ -n "$B64" ]; then
-            JKS="$RUNNER_TEMP/debug.jks"
-            echo "$B64" | base64 -d > "$JKS"
-            echo "KEYSTORE_FILE=$JKS" >> "$GITHUB_ENV"
-            if [ -z "$KEY_ALIAS" ] || ! keytool -list -keystore "$JKS" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
-              DETECTED_ALIAS=$(keytool -list -keystore "$JKS" -storepass "$KEYSTORE_PASSWORD" 2>/dev/null | grep -i "PrivateKeyEntry" | head -n1 | cut -d',' -f1)
-              [ -n "$DETECTED_ALIAS" ] && echo "KEY_ALIAS=$DETECTED_ALIAS" >> "$GITHUB_ENV"
-            fi
-            echo "SIGNING_MODE=🔐 Keystore debug propio (ANDROID_KEYSTORE_DEBUG_BASE64)" >> "$GITHUB_ENV"
-            echo "✅ Firmando con tu keystore debug personalizado."
-          else
-            echo "SIGNING_MODE=⚠️ Clave debug temporal del runner" >> "$GITHUB_ENV"
-            echo "ℹ️ Sin secret ANDROID_KEYSTORE_DEBUG_BASE64: usando clave debug temporal."
+          if [ -z "$B64" ]; then
+            echo "::error::❌ Falta el secret ANDROID_KEYSTORE_DEBUG_BASE64 (o KEYSTORE_BASE64) en GitHub Secrets."
+            exit 1
           fi
+          if [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::❌ Falta el secret KEYSTORE_PASSWORD en GitHub Secrets."
+            exit 1
+          fi
+          JKS="$RUNNER_TEMP/debug.jks"
+          echo "$B64" | base64 -d > "$JKS"
+          echo "KEYSTORE_FILE=$JKS" >> "$GITHUB_ENV"
+          if [ -z "$KEY_ALIAS" ] || ! keytool -list -keystore "$JKS" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+            DETECTED_ALIAS=$(keytool -list -keystore "$JKS" -storepass "$KEYSTORE_PASSWORD" 2>/dev/null | grep -i "PrivateKeyEntry" | head -n1 | cut -d',' -f1)
+            [ -n "$DETECTED_ALIAS" ] && echo "KEY_ALIAS=$DETECTED_ALIAS" >> "$GITHUB_ENV"
+          fi
+          echo "✅ Keystore debug cargado desde GitHub Secrets."
 
       - name: 🛠️ Compilar APK debug
         run: gradle assembleDebug -PversionCode="${{ github.run_number }}" --stacktrace
@@ -78,11 +80,11 @@ jobs:
             echo "| 📦 **Archivo** | \`$APK_NAME\` |"
             echo "| 📏 **Tamaño** | \`$APK_SIZE\` |"
             echo "| 🔢 **Version Code** | \`${{ github.run_number }}\` |"
-            echo "| 🔑 **Firma** | $SIGNING_MODE |"
+            echo "| 🔑 **Firma** | 🔐 Keystore debug (\`ANDROID_KEYSTORE_DEBUG_BASE64\`) |"
             echo "| 🔒 **SHA-256** | \`$APK_SHA256\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: 🧹 Limpiar keystore temporal
+      - name: 🧹 Limpiar keystore del runner
         if: always()
         run: rm -f "$RUNNER_TEMP/debug.jks"
 
