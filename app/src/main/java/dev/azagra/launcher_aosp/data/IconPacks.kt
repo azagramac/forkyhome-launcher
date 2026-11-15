@@ -179,24 +179,7 @@ class IconPacks(private val ctx: Context) {
         target: String,
         compOut: MutableMap<String, String>,
         pkgOut: MutableMap<String, String>?,
-    ) {
-        val inside = rawComp.removePrefix("ComponentInfo{").removeSuffix("}").trim()
-        val slash = inside.indexOf('/')
-        if (slash <= 0) {
-            compOut[rawComp] = target
-            return
-        }
-        val pkg = inside.substring(0, slash)
-        val cls = inside.substring(slash + 1)
-        val fullCls = if (cls.startsWith(".")) "$pkg$cls" else cls
-        val shortCls = if (cls.startsWith(pkg)) cls.removePrefix(pkg) else cls
-
-        compOut["$pkg/$fullCls"] = target
-        compOut["$pkg/$shortCls"] = target
-        compOut["ComponentInfo{$pkg/$fullCls}"] = target
-        compOut["ComponentInfo{$pkg/$shortCls}"] = target
-        pkgOut?.putIfAbsent(pkg, target)
-    }
+    ) = registerComponentMappingToMaps(rawComp, target, compOut, pkgOut)
 
     private fun loadPackDrawable(r: Resources, pkg: String, drawableName: String): Drawable? {
         var id = r.getIdentifier(drawableName, "drawable", pkg)
@@ -216,13 +199,11 @@ class IconPacks(private val ctx: Context) {
         val calPrefix = calendarMap[fullKey] ?: calendarMap[shortKey]
         if (calPrefix != null) {
             val day = Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
-            loadPackDrawable(r, pkg, "$calPrefix$day")?.let { return it }
+            loadPackDrawable(r, pkg, resolveCalendarDrawableName(calPrefix, day))?.let { return it }
         }
 
         // 2. Coincidencia exacta por actividad (completa o abreviada) o fallback por nombre de paquete
-        val name = componentMap[fullKey]
-            ?: componentMap[shortKey]
-            ?: packageMap[c.packageName]
+        val name = resolvePackDrawableName(c.packageName, c.className, componentMap, packageMap)
             ?: return null
 
         return loadPackDrawable(r, pkg, name)
@@ -254,7 +235,7 @@ class IconPacks(private val ctx: Context) {
             // Capa de icono original escalada + recortada con iconmask si existe
             val iconLayer = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
             val iconCanvas = Canvas(iconLayer)
-            val scaledSize = (sizePx * scaleFactor.coerceIn(0.4f, 1.2f)).roundToInt().coerceAtLeast(1)
+            val scaledSize = (sizePx * clampIconPackScale(scaleFactor)).roundToInt().coerceAtLeast(1)
             val pad = (sizePx - scaledSize) / 2f
             val rawBmp = baseDrawable.toBitmap(scaledSize, scaledSize)
             iconCanvas.drawBitmap(rawBmp, pad, pad, paint)
@@ -293,3 +274,47 @@ class IconPacks(private val ctx: Context) {
         }.getOrNull()
     }
 }
+
+internal fun registerComponentMappingToMaps(
+    rawComp: String,
+    target: String,
+    compOut: MutableMap<String, String>,
+    pkgOut: MutableMap<String, String>?,
+) {
+    val inside = rawComp.removePrefix("ComponentInfo{").removeSuffix("}").trim()
+    val slash = inside.indexOf('/')
+    if (slash <= 0) {
+        compOut[rawComp] = target
+        return
+    }
+    val pkg = inside.substring(0, slash)
+    val cls = inside.substring(slash + 1)
+    val fullCls = if (cls.startsWith(".")) "$pkg$cls" else cls
+    val shortCls = if (cls.startsWith(pkg)) cls.removePrefix(pkg) else cls
+
+    compOut["$pkg/$fullCls"] = target
+    compOut["$pkg/$shortCls"] = target
+    compOut["ComponentInfo{$pkg/$fullCls}"] = target
+    compOut["ComponentInfo{$pkg/$shortCls}"] = target
+    pkgOut?.putIfAbsent(pkg, target)
+}
+
+internal fun resolvePackDrawableName(
+    pkg: String,
+    className: String,
+    componentMap: Map<String, String>,
+    packageMap: Map<String, String>,
+): String? {
+    val fullKey = "$pkg/$className"
+    val shortCls = if (className.startsWith(pkg)) className.removePrefix(pkg) else className
+    val shortKey = "$pkg/$shortCls"
+    return componentMap[fullKey]
+        ?: componentMap[shortKey]
+        ?: packageMap[pkg]
+}
+
+internal fun resolveCalendarDrawableName(prefix: String, dayOfMonth: Int): String =
+    "$prefix${dayOfMonth.coerceIn(1, 31)}"
+
+internal fun clampIconPackScale(rawScale: Float): Float =
+    rawScale.coerceIn(0.4f, 1.2f)

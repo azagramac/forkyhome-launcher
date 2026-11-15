@@ -64,12 +64,15 @@ android {
     }
     buildFeatures { compose = true }
     testOptions {
-        unitTests.all {
-            it.testLogging {
-                events("passed", "skipped", "failed")
-                showExceptions = true
-                showCauses = true
-                showStackTraces = true
+        unitTests {
+            isReturnDefaultValues = true
+            all {
+                it.testLogging {
+                    events("passed", "skipped", "failed")
+                    showExceptions = true
+                    showCauses = true
+                    showStackTraces = true
+                }
             }
         }
     }

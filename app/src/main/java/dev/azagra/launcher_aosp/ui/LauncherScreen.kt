@@ -128,20 +128,20 @@ private val FolderCardShape = RoundedCornerShape(28.dp)
 private val CellHighlightShape = RoundedCornerShape(20.dp)
 private val DockShape = RoundedCornerShape(32.dp)
 
-private sealed interface DragSource {
+internal sealed interface DragSource {
     data class Home(val item: HomeItem) : DragSource
     data class Dock(val index: Int, val appKey: String) : DragSource
     data class Drawer(val app: AppInfo) : DragSource
     data class Folder(val folderId: Int, val app: AppInfo) : DragSource
 }
 
-private data class DragSession(
+internal data class DragSession(
     val source: DragSource,
     val previewApp: AppInfo?,
     val widgetTouchOffset: Offset = Offset.Zero,
 )
 
-private fun isDropOverDock(
+internal fun isDropOverDock(
     session: DragSession,
     posInRoot: Offset,
     dockBounds: Rect,
@@ -153,7 +153,7 @@ private fun isDropOverDock(
         posInRoot.y >= (dockBounds.top - topMarginPx)
 }
 
-private fun resolveDockSlot(
+internal fun resolveDockSlot(
     session: DragSession,
     posInRoot: Offset,
     dockBounds: Rect,
@@ -170,7 +170,7 @@ private fun resolveDockSlot(
     return ((relX / dockBounds.width) * count).toInt().coerceIn(0, count - 1)
 }
 
-private fun resolveGridTarget(
+internal fun resolveGridTarget(
     session: DragSession,
     posInRoot: Offset,
     gridBounds: Rect,
@@ -216,7 +216,7 @@ private fun resolveGridTarget(
  * - Impide solapar con otro widget de la misma página.
  * - Si el área nueva cubre iconos o carpetas 1×1, los desplaza automáticamente a las celdas libres más cercanas.
  */
-private fun placeOrResizeWidget(
+internal fun placeOrResizeWidget(
     home: List<HomeItem>,
     widgetId: Int,
     targetPage: Int,
@@ -302,7 +302,7 @@ private fun placeOrResizeWidget(
 }
 
 /** Elimina una app de una carpeta; si queda 1 sola app la convierte en icono normal, y si queda vacía la borra. */
-private fun removeAppFromFolderInList(
+internal fun removeAppFromFolderInList(
     home: List<HomeItem>,
     folderId: Int,
     appKey: String,

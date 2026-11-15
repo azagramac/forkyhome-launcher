@@ -123,8 +123,7 @@ fun AppDrawer(
     }
 
     val filtered = remember(apps, query, s.hiddenApps) {
-        val visibleApps = if (s.hiddenApps.isEmpty()) apps else apps.filter { it.pkg !in s.hiddenApps && it.key !in s.hiddenApps }
-        if (query.isBlank()) visibleApps else visibleApps.filter { it.label.contains(query, ignoreCase = true) }
+        filterDrawerApps(apps, query, s.hiddenApps)
     }
 
     // Conexión de scroll anidado suave para deslizar el cajón al llegar al tope superior de la cuadrícula
@@ -276,4 +275,32 @@ fun AppDrawer(
             }
         }
     }
+}
+
+internal fun filterDrawerApps(
+    apps: List<AppInfo>,
+    query: String,
+    hiddenApps: Set<String>,
+): List<AppInfo> {
+    val visibleApps = if (hiddenApps.isEmpty()) {
+        apps
+    } else {
+        apps.filter { it.pkg !in hiddenApps && it.key !in hiddenApps }
+    }
+    val trimmed = query.trim()
+    return if (trimmed.isEmpty()) {
+        visibleApps
+    } else {
+        visibleApps.filter { it.label.contains(trimmed, ignoreCase = true) }
+    }
+}
+
+internal fun buildAlphabetIndexMap(labels: List<String>): Map<Char, Int> {
+    val map = LinkedHashMap<Char, Int>()
+    labels.forEachIndexed { index, label ->
+        val first = label.trim().firstOrNull()?.uppercaseChar() ?: '#'
+        val key = if (first in 'A'..'Z') first else '#'
+        map.putIfAbsent(key, index)
+    }
+    return map
 }
