@@ -26,9 +26,9 @@ jobs:
           gradle-version: 8.14
 
       - name: Compilar APK debug
-        run: gradle assembleDebug --stacktrace
+        run: gradle assembleDebug -PversionCode="${{ github.run_number }}" --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MyLauncher-debug
+          name: launcher-aosp-debug
           path: app/build/outputs/apk/debug/*.apk

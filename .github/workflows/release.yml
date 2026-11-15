@@ -65,16 +65,16 @@ jobs:
       - name: Compilar APK release
         run: gradle assembleRelease -PversionName="$VERSION" -PversionCode="${{ github.run_number }}" --stacktrace
 
-      - name: Renombrar APK
+      - name: Localizar APK
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/release/*.apk "dist/MyLauncher-${VERSION}.apk"
+          cp app/build/outputs/apk/release/*.apk dist/
           ls -l dist
 
       - name: Publicar release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
-          name: MyLauncher ${{ env.VERSION }}
-          files: dist/MyLauncher-${{ env.VERSION }}.apk
+          name: launcher-aosp ${{ env.VERSION }}
+          files: dist/*.apk
           generate_release_notes: true

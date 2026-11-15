@@ -4,17 +4,23 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// applicationId no admite guiones, por eso el paquete usa "_"; el APK se llama con el nombre del proyecto.
+val appId = "dev.azagra.launcher_aosp"
+val apkBaseName = "dev.azagra.launcher-aosp"
+// El workflow pasa -PversionName=1.2.3 -PversionCode=N
+val appVersionName = (findProperty("versionName") as String?) ?: "0.1.0"
+val appVersionCode = (findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
+
 android {
-    namespace = "app.mylauncher"
+    namespace = appId
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "app.mylauncher"
+        applicationId = appId
         minSdk = 35            // Android 15
         targetSdk = 36
-        // El workflow pasa -PversionName=1.2.3 -PversionCode=N
-        versionCode = (findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
-        versionName = (findProperty("versionName") as String?) ?: "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
     }
 
     // Firma de release: si hay KEYSTORE_FILE en el entorno se usa; si no, se firma con la clave debug.
@@ -46,6 +52,17 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
     lint { abortOnError = false }
+
+    // Nombre del APK:
+    //   debug   -> dev.azagra.launcher-aosp-{versionName}-{versionCode}.apk
+    //   release -> dev.azagra.launcher-aosp-{versionName}.apk
+    applicationVariants.all {
+        val isDebug = buildType.name == "debug"
+        outputs.all {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+                if (isDebug) "$apkBaseName-$appVersionName-$appVersionCode.apk" else "$apkBaseName-$appVersionName.apk"
+        }
+    }
 }
 
 dependencies {
