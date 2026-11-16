@@ -1,58 +1,71 @@
-# AOSP Launcher
+<p align="center">
+  <img src="https://developer.android.com/static/images/brand/android-head_3D.svg" width="96" alt="Android" />
+</p>
 
-Launcher Android moderno, ligero y fluido escrito en **Kotlin + Jetpack Compose**, inspirado en **LineageOS Trebuchet** y diseñado con **Material 3 / Material You**.
+<h1 align="center">AOSP Launcher</h1>
 
-- **Paquete**: `dev.azagra.launcher_aosp`
-- **SDK**: `minSdk 35` (Android 15) · `targetSdk 36` (Android 16)
-- **Licencia**: GPL-3.0
+<p align="center">
+  A lightweight, high-performance Android home screen launcher built with <strong>Kotlin</strong> and <strong>Jetpack Compose</strong>, inspired by <strong>LineageOS Trebuchet</strong> and <strong>AOSP Launcher3</strong>, designed with <strong>Material 3 / Material You</strong>.
+</p>
 
 ---
 
-## ✨ Características actuales
+## Compatibility & Specs
 
-### 🏠 Pantalla de inicio (Escritorio) y Dock
-- **Páginas y cuadrícula configurables**: de `1` a `5` páginas, de `4` a `6` columnas y de `4` a `7` filas.
-- **Arrastrar y soltar en tiempo real (estilo Trebuchet)**:
-  - Mantén pulsado cualquier icono en el **Cajón de aplicaciones**, **Escritorio**, **Dock** o dentro de una **Carpeta** y arrástralo directamente a la celda o posición del Dock donde quieras soltarlo.
-  - **Cambio automático de página** al acercar el icono arrastrado a los bordes laterales de la pantalla.
-  - Indicadores visuales Material You de celda destino y creación/fusión de carpetas.
-- **Carpetas estilo Trebuchet**:
-  - Superposición flotante con cuadrícula de vista previa (`2×2`), edición del nombre en su parte inferior y posibilidad de arrastrar iconos fuera de la carpeta hacia el escritorio o dock.
-- **Widgets nativos (`AppWidgetHost`)**:
-  - Añade, configura y **redimensiona** (`spanX` × `spanY`) widgets directamente en el escritorio.
-- **Dock inferior**: hasta 5 accesos directos fijos con reordenación mediante arrastrar y soltar.
-- **Opciones adicionales de escritorio**:
-  - Mostrar/ocultar etiquetas de iconos en el escritorio.
-  - **Bloquear escritorio** para evitar cambios accidentales.
-  - Añadir automáticamente los iconos de nuevas aplicaciones instaladas.
-  - Gesto de **deslizar hacia abajo** en cualquier parte del escritorio para desplegar el panel de notificaciones.
+* **Package**: `dev.azagra.launcher_aosp`
+* **Android Compatibility**: **Android 14 (API 34)** up to **Android 16 (API 36)** (`minSdk = 34`, `targetSdk = 36`, `compileSdk = 36`)
+* **Multi-Profile Support**: Queries activities across all active user profiles (`LauncherApps.profiles`), including Work Profile and Android 15+ Private Space
+* **Languages**: English (default) and Spanish (`values-es/`)
+* **License**: GPL-3.0
 
-### 📱 Cajón de aplicaciones fluido
-- **Física de muelle (`spring`) y paralaje**: apertura y cierre suaves siguiendo el dedo con histéresis direccional, curva cúbica y transición de escala/opacidad sin cortes bruscos.
-- **Buscador instantáneo** integrado en barra tipo píldora Material 3.
-- **Índice rápido alfabético (`A–Z`)** en el lateral derecho para saltar a cualquier letra deslizando el dedo.
-- **Personalización visual**:
-  - Fondo seleccionable: **Sistema (Material You)**, **Claro**, **Oscuro** o **Negro AMOLED**.
-  - Control deslizante de **opacidad del fondo** (`50%` – `100%`).
-  - Columnas configurables (`4` – `6`) y opción para mostrar u ocultar etiquetas.
+---
 
-### 🎨 Iconos, Formas y Paquetes de Iconos
-- **Tamaño de iconos adaptable e independiente**:
-  - Escalado base automático según el número de columnas (`60dp` en 4 columnas, `54dp` en 5 columnas, `48dp` en 6 columnas) con límites seguros para evitar solapamientos.
-  - Controles deslizantes independientes (**80% – 120%**) para ajustar el tamaño de los iconos del **Escritorio** y del **Cajón de aplicaciones**.
-- **6 formas de icono (`IconShape`)**: Sistema, Círculo, Cuadrado redondeado (*Squircle*), Gota (*Teardrop*), Cilindro (*Cylinder*) y Cuadrado.
-- **Soporte avanzado de Paquetes de Iconos**:
-  - Compatible con paquetes de iconos estándar (ADW, Nova, Lawnchair, Action, Apex, Go, Smart Launcher).
-  - Lectura de `res/xml/appfilter.xml` y `assets/appfilter.xml`.
-  - Normalización de `ComponentName`, fallback por paquete y **calendario dinámico (`<calendar>`)** según el día del mes.
-  - **Enmascarado automático** (`<iconback>`, `<iconmask>`, `<iconupon>`, `<scale>`) para tematizar de forma uniforme las aplicaciones no incluidas en el pack.
-- **Iconos temáticos (Monocromáticos Material You)** para escritorio y dock.
-- **Globos de notificación** con contador numérico sobre los iconos (mediante `NotificationListenerService`).
-- **App Shortcuts (accesos directos de aplicación)** al mantener pulsado un icono, junto con acceso rápido a información de la app y desinstalación.
+## Performance & AOSP-Grade Architecture
 
-### 🔒 Privacidad (Apps Ocultas y Protegidas)
-- **Ocultar aplicaciones** del cajón de aplicaciones.
-- **Proteger aplicaciones** con **huella dactilar / biometría o PIN/patrón del dispositivo** antes de permitir abrirlas o gestionar su visibilidad.
+Built to match the responsiveness and low power footprint of native AOSP launchers:
 
-### 🌐 Idiomas
-- **Inglés** (`values/`) por defecto y **Español** (`values-es/`).
+* **Persistent Disk Icon Cache**: Rendered app icons (including icon pack masks, dynamic calendar icons, monochrome themed icons, and pre-clipped shapes) are cached in `cacheDir/icon_cache` to ensure fast cold starts.
+* **Incremental Package Updates**: `ACTION_PACKAGE_ADDED`, `ACTION_PACKAGE_CHANGED`, and `ACTION_PACKAGE_REMOVED` broadcasts update only the affected package instead of reloading the entire app catalog.
+* **Pre-Clipped Icon Shapes**: `IconShape` masks are baked into cached bitmaps in `AppRepository`, avoiding per-frame GPU clipping during app drawer scrolling.
+* **Zero-Recomposition Drag & Drop**: Drag coordinates are isolated using `derivedStateOf` and `Modifier.graphicsLayer` translations, while home grid items animate using `Animatable` pixel offsets without triggering re-layouts.
+* **Async Main-Thread-Safe Loaders**: Widget provider lists, widget icons, installed icon packs, and app shortcuts are loaded off the main thread on `Dispatchers.IO`.
+* **Baseline Profile & R8**: Includes `app/src/main/baseline-prof.txt` with `androidx.profileinstaller` for AOT compilation of startup, `HorizontalPager`, and `LazyVerticalGrid` hot paths, plus R8 minification and resource shrinking on release builds.
+* **LTPO-Friendly Refresh Rate**: Uses `window.frameRateBoostOnTouchEnabled = true` on Android 15+ (`API 35+`) for instant 120 Hz response on touch while allowing LTPO displays to drop refresh rate at rest.
+* **Native System Integration**:
+  * Launches apps via `LauncherApps.startMainActivity` with `ActivityOptions.makeClipRevealAnimation`.
+  * Supports Android 15+ **Predictive Back** (`android:enableOnBackInvokedCallback="true"`).
+
+---
+
+## Privacy & Security
+
+AOSP Launcher is designed with strict local-only privacy:
+
+* **Zero Network Access**: Does **not** declare `android.permission.INTERNET`. No telemetry, analytics, crash reporting, or remote requests ever leave your device.
+* **No Cloud Backups**: `android:allowBackup="false"` prevents launcher layout and preferences from being uploaded to cloud backups.
+* **Hidden Apps**: Hide any app from the app drawer (persisted locally in Jetpack DataStore Preferences).
+* **Protected Apps (`BiometricPrompt`)**: Lock sensitive apps behind native system authentication (`BIOMETRIC_WEAK` or `DEVICE_CREDENTIAL` PIN/pattern/password) before launching them or toggling their protection state.
+
+---
+
+## Features
+
+### Home Screen, Dock & Widgets
+* **Configurable Workspace**: Dynamic home pages (auto-compacted), configurable grid (`4–6` columns × `4–7` rows), and a bottom dock supporting up to **5** pinned apps.
+* **Real-Time Drag & Drop**: Drag apps from the drawer, home screen, dock, or open folders directly onto grid cells, dock slots, or edge zones to switch pages automatically.
+* **Trebuchet-Style Folders**: `2×2` preview grid icon, floating Material 3 folder overlay with debounced inline title editing, and drag-out support.
+* **Native Widgets (`AppWidgetHost`)**: Add, configure, reconfigure, move, and resize (`spanX × spanY`) home screen widgets with automatic displacement of nearby icons.
+* **At A Glance Header**: Optional top header displaying the current date, next scheduled alarm (`AlarmManager`), and battery level/charging state.
+* **Desktop Controls**: Lock desktop layout, auto-add newly installed apps, toggle icon labels, swipe down anywhere to expand the notification shade (`EXPAND_STATUS_BAR`), and optional double-tap to sleep via `LockScreenService` (Accessibility).
+
+### App Drawer
+* **Spring Physics & Parallax**: Smooth finger-tracked open/close transitions with directional hysteresis and nested scroll integration.
+* **Instant Search**: Material 3 search bar filtering visible apps in real time.
+* **Customization**: `4–6` columns, independent icon scaling (`80%–120%`), label visibility toggle, and selectable background (`System`, `Light`, `Dark`, `AMOLED Black`) with adjustable opacity (`50%–100%`).
+
+### Icons & Icon Packs
+* **Adaptive Icon Sizing**: Automatic column-based sizing (`60dp` for 4 cols, `54dp` for 5 cols, `48dp` for 6 cols) with independent `80%–120%` scale sliders for Home and Drawer.
+* **5 Icon Shapes**: System Default, Circle, Squircle, Rounded, and Teardrop.
+* **Icon Pack Engine**: Compatible with standard icon packs (ADW, Nova, Lawnchair, Action, Apex, Go, Smart Launcher) supporting `appfilter.xml` (`res/xml`, `res/raw`, or `assets`), dynamic `<calendar>` icons, and `<iconback>`, `<iconmask>`, `<iconupon>`, `<scale>` fallback masking.
+* **Themed Monochrome Icons**: Material You monochrome icon rendering on the home screen and dock using `AdaptiveIconDrawable.monochrome`.
+* **App Shortcuts & Badges**: Long-press context menu with dynamic/manifest app shortcuts, app info, and uninstall actions. *(Note: `NotificationCounter` `NotificationListenerService` is included in source and commented out in `AndroidManifest.xml` by default for Android 15+ sideload Play Protect compatibility).*

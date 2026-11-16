@@ -18,6 +18,8 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -40,6 +42,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -88,6 +91,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -102,8 +106,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
@@ -1117,29 +1126,47 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         val openFolderItem = remember(s.home, openFolderId) {
             s.home.firstOrNull { it.id == openFolderId && it.kind == ItemKind.FOLDER }
         }
+        var lastVisibleFolder by remember { mutableStateOf<HomeItem?>(null) }
         if (openFolderItem != null) {
-            val payload = remember(openFolderItem.data) { FolderPayload.decode(openFolderItem.data) }
+            lastVisibleFolder = openFolderItem
+        }
+        val keyboardController = LocalSoftwareKeyboardController.current
+        AnimatedVisibility(
+            visible = openFolderItem != null,
+            enter = fadeIn(spring(stiffness = Spring.StiffnessMedium)) +
+                scaleIn(initialScale = 0.92f, animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMedium)),
+            exit = fadeOut(spring(stiffness = Spring.StiffnessMedium)) +
+                scaleOut(targetScale = 0.92f, animationSpec = spring(stiffness = Spring.StiffnessMedium)),
+        ) {
+            val activeFolder = openFolderItem ?: lastVisibleFolder ?: return@AnimatedVisibility
+            val payload = remember(activeFolder.data) { FolderPayload.decode(activeFolder.data) }
             val defaultTitle = stringResource(R.string.folder_default_name)
-            var folderTitle by remember(openFolderItem.id, payload.title) {
-                mutableStateOf(payload.title.ifBlank { defaultTitle })
+            var folderTitleField by remember(activeFolder.id) {
+                val initial = payload.title.ifBlank { defaultTitle }
+                mutableStateOf(TextFieldValue(text = initial, selection = TextRange(initial.length)))
             }
             val folderApps = remember(payload.apps, appMap) {
                 payload.apps.mapNotNull { appMap[it] }
             }
             val rows = remember(folderApps) { folderApps.chunked(3) }
 
-            fun saveTitleAndClose() {
-                focusManager.clearFocus()
-                val cleanTitle = folderTitle.trim().ifBlank { defaultTitle }
+            fun commitFolderTitle() {
+                val cleanTitle = folderTitleField.text.trim().ifBlank { defaultTitle }
                 if (cleanTitle != payload.title) {
                     edit { st ->
                         st.copy(
                             home = st.home.map {
-                                if (it.id == openFolderItem.id) it.copy(data = payload.copy(title = cleanTitle).encode()) else it
+                                if (it.id == activeFolder.id) it.copy(data = payload.copy(title = cleanTitle).encode()) else it
                             }
                         )
                     }
                 }
+            }
+
+            fun saveTitleAndClose() {
+                keyboardController?.hide()
+                focusManager.clearFocus()
+                commitFolderTitle()
                 openFolderId = null
             }
 
@@ -1150,6 +1177,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                         alpha = if (isDraggingFromFolder) 0f else 1f
                     }
                     .background(Color.Black.copy(alpha = if (isDraggingFromFolder) 0f else 0.38f))
+                    .imePadding()
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -1169,7 +1197,10 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            onClick = { focusManager.clearFocus() },
+                            onClick = {
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                            },
                         ),
                 ) {
                     Column(
@@ -1211,7 +1242,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                                                 if (!checkUnlocked()) return@MenuAction
                                                                 val remainingCount = payload.apps.count { it != app.key }
                                                                 edit { st ->
-                                                                    val nextHome = compactHomePages(removeAppFromFolderInList(st.home, openFolderItem.id, app.key))
+                                                                    val nextHome = compactHomePages(removeAppFromFolderInList(st.home, activeFolder.id, app.key))
                                                                     st.copy(home = nextHome, homePages = activePageCount(nextHome))
                                                                 }
                                                                 if (remainingCount <= 1) openFolderId = null
@@ -1219,15 +1250,17 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                                         ) + common(app)
                                                     },
                                                     onClick = {
+                                                        keyboardController?.hide()
                                                         openFolderId = null
                                                         openApp(app)
                                                     },
                                                     onPressHoldChange = { holding -> isHoldingItem = holding },
                                                     onDragStart = { startRootPos ->
                                                         if (!checkUnlocked()) return@AppIcon
+                                                        keyboardController?.hide()
                                                         focusManager.clearFocus()
                                                         dragPosInRoot = startRootPos
-                                                        dragSession = DragSession(DragSource.Folder(openFolderItem.id, app), app)
+                                                        dragSession = DragSession(DragSource.Folder(activeFolder.id, app), app)
                                                     },
                                                     onDrag = { rootPos -> dragPosInRoot = rootPos },
                                                     onDragEnd = { finishDrag() },
@@ -1248,36 +1281,35 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
                         )
 
-                        LaunchedEffect(openFolderItem.id, folderTitle) {
-                            val clean = folderTitle.trim()
-                            if (clean.isNotEmpty() && clean != payload.title) {
-                                delay(350)
-                                edit { st ->
-                                    st.copy(
-                                        home = st.home.map {
-                                            if (it.id == openFolderItem.id) it.copy(data = payload.copy(title = clean).encode()) else it
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
                         BasicTextField(
-                            value = folderTitle,
-                            onValueChange = { newTitle ->
-                                folderTitle = newTitle
-                            },
+                            value = folderTitleField,
+                            onValueChange = { folderTitleField = it },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Center,
                             ),
                             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.Words,
+                                keyboardType = KeyboardType.Text,
+                                imeAction = ImeAction.Done,
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onDone = {
+                                    commitFolderTitle()
+                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
+                                },
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
+                                .padding(vertical = 4.dp)
+                                .onFocusChanged { focusState ->
+                                    if (!focusState.isFocused) {
+                                        commitFolderTitle()
+                                    }
+                                },
                         )
                     }
                 }
