@@ -1,6 +1,7 @@
 package dev.azagra.launcher_aosp
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -26,7 +27,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        window.frameRateBoostOnTouchEnabled = true
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            window.frameRateBoostOnTouchEnabled = true
+        }
         container = (application as LauncherApp).container
 
         widgets = WidgetController(this) { id, info ->
