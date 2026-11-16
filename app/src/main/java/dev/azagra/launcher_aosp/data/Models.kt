@@ -1,6 +1,8 @@
 package dev.azagra.launcher_aosp.data
 
 import android.content.ComponentName
+import android.os.Process
+import android.os.UserHandle
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.ImageBitmap
 
@@ -21,6 +23,7 @@ class AppInfo(
     val homeIcon: ImageBitmap = icon,
     val pkg: String = component.packageName ?: "",
     val key: String = component.flattenToString() ?: "",
+    val user: UserHandle = Process.myUserHandle(),
 ) {
     constructor(
         pkg: String,
@@ -45,10 +48,12 @@ data class AppShortcut(
     val label: String,
 )
 
+@Immutable
 data class IconConfig(
     val pack: String? = null,
     val themed: Boolean = false,
     val dark: Boolean = false,
+    val shape: IconShape = IconShape.DEFAULT,
 )
 
 @Immutable
@@ -79,6 +84,7 @@ data class FolderPayload(
     }
 }
 
+@Immutable
 data class HomeItem(
     val id: Int,
     val kind: ItemKind,
@@ -102,6 +108,7 @@ data class HomeItem(
     }
 }
 
+@Immutable
 data class LauncherSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,

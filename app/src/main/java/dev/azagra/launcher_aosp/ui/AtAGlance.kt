@@ -59,19 +59,30 @@ fun AtAGlanceHeader(
     var isCharging by remember { mutableStateOf(false) }
 
     DisposableEffect(ctx) {
-        fun refreshState(batteryIntent: Intent? = null) {
-            nowMillis = System.currentTimeMillis()
-            nextAlarmMillis = readNextAlarmMillis(ctx)
-            val bIntent = batteryIntent ?: ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-            if (bIntent != null) {
-                val level = bIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-                val scale = bIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-                if (level >= 0 && scale > 0) {
-                    batteryPct = ((level * 100f) / scale).toInt().coerceIn(0, 100)
+        fun refreshState(action: String? = null, batteryIntent: Intent? = null) {
+            if (action == null || action != Intent.ACTION_BATTERY_CHANGED) {
+                nowMillis = System.currentTimeMillis()
+            }
+            if (action == null ||
+                action == AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED ||
+                action == Intent.ACTION_TIME_CHANGED ||
+                action == Intent.ACTION_DATE_CHANGED ||
+                action == Intent.ACTION_TIMEZONE_CHANGED
+            ) {
+                nextAlarmMillis = readNextAlarmMillis(ctx)
+            }
+            if (action == null || action == Intent.ACTION_BATTERY_CHANGED) {
+                val bIntent = batteryIntent ?: ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                if (bIntent != null) {
+                    val level = bIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                    val scale = bIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+                    if (level >= 0 && scale > 0) {
+                        batteryPct = ((level * 100f) / scale).toInt().coerceIn(0, 100)
+                    }
+                    val status = bIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                    isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                        status == BatteryManager.BATTERY_STATUS_FULL
                 }
-                val status = bIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                    status == BatteryManager.BATTERY_STATUS_FULL
             }
         }
 
@@ -79,7 +90,10 @@ fun AtAGlanceHeader(
 
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                refreshState(intent?.takeIf { it.action == Intent.ACTION_BATTERY_CHANGED })
+                refreshState(
+                    action = intent?.action,
+                    batteryIntent = intent?.takeIf { it.action == Intent.ACTION_BATTERY_CHANGED },
+                )
             }
         }
         val filter = IntentFilter().apply {

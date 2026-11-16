@@ -1,17 +1,18 @@
 package dev.azagra.launcher_aosp.ui
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
+import android.hardware.biometrics.BiometricManager
+import android.hardware.biometrics.BiometricPrompt
 import android.net.Uri
+import android.os.CancellationSignal
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -79,6 +80,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -95,7 +97,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -114,6 +116,7 @@ import dev.azagra.launcher_aosp.data.DOCK_MAX
 import dev.azagra.launcher_aosp.data.FolderPayload
 import dev.azagra.launcher_aosp.data.HomeItem
 import dev.azagra.launcher_aosp.data.IconConfig
+import dev.azagra.launcher_aosp.data.IconPacks
 import dev.azagra.launcher_aosp.data.ItemKind
 import dev.azagra.launcher_aosp.data.LauncherSettings
 import dev.azagra.launcher_aosp.data.activePageCount
@@ -123,8 +126,10 @@ import dev.azagra.launcher_aosp.notif.NotificationCounter
 import dev.azagra.launcher_aosp.util.LockScreenService
 import dev.azagra.launcher_aosp.widgets.WidgetController
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val FloatingMenuShape = RoundedCornerShape(24.dp)
 private val FolderCardShape = RoundedCornerShape(28.dp)
@@ -368,20 +373,37 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     }
 
     val keyguardManager = remember { ctx.getSystemService(KeyguardManager::class.java) }
-    var pendingProtectedAction by remember { mutableStateOf<(() -> Unit)?>(null) }
-    val authLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
-        if (res.resultCode == Activity.RESULT_OK) {
-            pendingProtectedAction?.invoke()
+    val mainExecutor = remember(ctx) { ctx.mainExecutor }
+    fun authenticateUser(action: () -> Unit) {
+        if (keyguardManager?.isDeviceSecure != true) {
+            action()
+            return
         }
-        pendingProtectedAction = null
+        val prompt = BiometricPrompt.Builder(ctx)
+            .setTitle(ctx.getString(R.string.auth_protected_app_title))
+            .setSubtitle(ctx.getString(R.string.auth_protected_app_desc))
+            .setAllowedAuthenticators(
+                BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
+            .build()
+        prompt.authenticate(
+            CancellationSignal(),
+            mainExecutor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
+                    action()
+                }
+            },
+        )
     }
 
     val homeCols = s.homeCols.coerceIn(4, 6)
     val homeRows = s.homeRows.coerceIn(4, 7)
     val dockMarginPx = with(density) { 20.dp.toPx() }
 
-    LaunchedEffect(s.iconPack, s.themedIcons, dark) {
-        repo.configure(IconConfig(s.iconPack, s.themedIcons, dark))
+    LaunchedEffect(s.iconPack, s.themedIcons, dark, s.iconShape) {
+        repo.configure(IconConfig(s.iconPack, s.themedIcons, dark, s.iconShape))
     }
     LaunchedEffect(apps) {
         if (apps.isNotEmpty()) store.update {
@@ -428,19 +450,11 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         return true
     }
     fun runWithProtection(pkg: String, action: () -> Unit) {
-        if (pkg in latestSettings.protectedApps && keyguardManager?.isDeviceSecure == true) {
-            @Suppress("DEPRECATION")
-            val intent = keyguardManager.createConfirmDeviceCredentialIntent(
-                ctx.getString(R.string.auth_protected_app_title),
-                ctx.getString(R.string.auth_protected_app_desc),
-            )
-            if (intent != null) {
-                pendingProtectedAction = action
-                authLauncher.launch(intent)
-                return
-            }
+        if (pkg in latestSettings.protectedApps) {
+            authenticateUser(action)
+        } else {
+            action()
         }
-        action()
     }
     fun details(pkg: String) = ctx.startActivity(
         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
@@ -814,9 +828,12 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     val isDraggingOrHolding = activeDrag != null || isHoldingItem
     val draggedDrawerAppKey = (activeDrag?.source as? DragSource.Drawer)?.app?.key
     val isDraggingFromFolder = activeDrag?.source is DragSource.Folder
-    val targetDockSlot: Int? = if (activeDrag != null) {
-        resolveDockSlot(activeDrag, dragPosInRoot, dockBoundsInRoot, s.dock.size, dockMarginPx)
-    } else null
+    val targetDockSlot by remember(dockMarginPx) {
+        derivedStateOf {
+            val d = dragSession ?: return@derivedStateOf null
+            resolveDockSlot(d, dragPosInRoot, dockBoundsInRoot, latestSettings.dock.size, dockMarginPx)
+        }
+    }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wPx = with(density) { maxWidth.toPx() }
@@ -825,11 +842,15 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         val edgeZonePx = with(density) { 38.dp.toPx() }
         var downwardPullPx by remember { mutableStateOf(0f) }
 
-        val edgeDir = when {
-            activeDrag == null || targetDockSlot != null -> 0
-            dragPosInRoot.x > 0f && dragPosInRoot.x < edgeZonePx && pagerState.currentPage > 0 -> -1
-            dragPosInRoot.x > (wPx - edgeZonePx) && pagerState.currentPage < pageCount - 1 -> 1
-            else -> 0
+        val edgeDir by remember(wPx, edgeZonePx, pageCount) {
+            derivedStateOf {
+                when {
+                    dragSession == null || targetDockSlot != null -> 0
+                    dragPosInRoot.x > 0f && dragPosInRoot.x < edgeZonePx && pagerState.currentPage > 0 -> -1
+                    dragPosInRoot.x > (wPx - edgeZonePx) && pagerState.currentPage < pageCount - 1 -> 1
+                    else -> 0
+                }
+            }
         }
         LaunchedEffect(edgeDir, pagerState.currentPage, pageCount) {
             if (edgeDir != 0) {
@@ -885,17 +906,22 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 beyondViewportPageCount = 1,
             ) { page ->
                 val pageDrag = dragSession
-                val highlightedCell = if (pageDrag != null && page == pagerState.currentPage) {
-                    resolveGridTarget(
-                        session = pageDrag,
-                        posInRoot = dragPosInRoot,
-                        gridBounds = gridBoundsInRoot,
-                        dockBounds = dockBoundsInRoot,
-                        cols = homeCols,
-                        rows = homeRows,
-                        topMarginPx = dockMarginPx,
-                    )
-                } else null
+                val highlightedCell by remember(page, homeCols, homeRows, dockMarginPx) {
+                    derivedStateOf {
+                        val d = dragSession
+                        if (d != null && page == pagerState.currentPage) {
+                            resolveGridTarget(
+                                session = d,
+                                posInRoot = dragPosInRoot,
+                                gridBounds = gridBoundsInRoot,
+                                dockBounds = dockBoundsInRoot,
+                                cols = homeCols,
+                                rows = homeRows,
+                                topMarginPx = dockMarginPx,
+                            )
+                        } else null
+                    }
+                }
                 val draggedHomeItem = (pageDrag?.source as? DragSource.Home)?.item
 
                 HomePage(
@@ -1038,7 +1064,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .onGloballyPositioned { dockBoundsInRoot = it.boundsInRoot() }
+                    .onPlaced { dockBoundsInRoot = it.boundsInRoot() }
                     .clip(DockShape)
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.78f))
                     .border(2.dp, dockBorderColor, DockShape)
@@ -1222,17 +1248,24 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
                         )
 
+                        LaunchedEffect(openFolderItem.id, folderTitle) {
+                            val clean = folderTitle.trim()
+                            if (clean.isNotEmpty() && clean != payload.title) {
+                                delay(350)
+                                edit { st ->
+                                    st.copy(
+                                        home = st.home.map {
+                                            if (it.id == openFolderItem.id) it.copy(data = payload.copy(title = clean).encode()) else it
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
                         BasicTextField(
                             value = folderTitle,
                             onValueChange = { newTitle ->
                                 folderTitle = newTitle
-                                edit { st ->
-                                    st.copy(
-                                        home = st.home.map {
-                                            if (it.id == openFolderItem.id) it.copy(data = payload.copy(title = newTitle).encode()) else it
-                                        }
-                                    )
-                                }
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleMedium.copy(
@@ -1344,13 +1377,9 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 val iconPx = with(density) { 56.dp.toPx() }
                 Box(
                     Modifier
-                        .offset {
-                            IntOffset(
-                                x = (dragPosInRoot.x - iconPx / 2f).roundToInt(),
-                                y = (dragPosInRoot.y - iconPx / 2f).roundToInt(),
-                            )
-                        }
                         .graphicsLayer {
+                            translationX = dragPosInRoot.x - iconPx / 2f
+                            translationY = dragPosInRoot.y - iconPx / 2f
                             scaleX = 1.18f
                             scaleY = 1.18f
                             alpha = 0.92f
@@ -1360,22 +1389,18 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                         bitmap = activeDrag.previewApp.homeIcon,
                         contentDescription = activeDrag.previewApp.label,
                         filterQuality = FilterQuality.Medium,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .let { if (s.iconShape != dev.azagra.launcher_aosp.data.IconShape.DEFAULT) it.clip(iconMaskShape(s.iconShape)) else it },
+                        modifier = Modifier.size(56.dp),
                     )
                 }
             } else if (draggedWidgetItem != null && gridBoundsInRoot.width > 0f && gridBoundsInRoot.height > 0f) {
                 val cwDp = with(density) { (gridBoundsInRoot.width / homeCols).toDp() }
                 val chDp = with(density) { (gridBoundsInRoot.height / homeRows).toDp() }
-                val topLeft = dragPosInRoot - activeDrag.widgetTouchOffset
                 Box(
                     Modifier
-                        .offset {
-                            IntOffset(
-                                x = topLeft.x.roundToInt(),
-                                y = topLeft.y.roundToInt(),
-                            )
+                        .graphicsLayer {
+                            val topLeft = dragPosInRoot - activeDrag.widgetTouchOffset
+                            translationX = topLeft.x
+                            translationY = topLeft.y
                         }
                         .size(cwDp * draggedWidgetItem.spanX, chDp * draggedWidgetItem.spanY)
                         .padding(4.dp)
@@ -1391,24 +1416,16 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             enter = slideInVertically { it / 6 } + fadeIn(),
             exit = slideOutVertically { it / 6 } + fadeOut(),
         ) {
-            val packs = remember { repo.packs.installed() }
+            val packs by produceState<List<IconPacks.Pack>>(emptyList(), showSettings) {
+                if (showSettings) {
+                    value = withContext(Dispatchers.IO) { repo.packs.installed() }
+                }
+            }
             SettingsScreen(
                 s = s,
                 packs = packs,
                 allApps = apps,
-                onAuthenticate = { action ->
-                    if (keyguardManager?.isDeviceSecure == true) {
-                        @Suppress("DEPRECATION")
-                        val intent = keyguardManager.createConfirmDeviceCredentialIntent(
-                            ctx.getString(R.string.auth_protected_app_title),
-                            ctx.getString(R.string.auth_protected_app_desc),
-                        )
-                        if (intent != null) {
-                            pendingProtectedAction = action
-                            authLauncher.launch(intent)
-                        } else action()
-                    } else action()
-                },
+                onAuthenticate = { action -> authenticateUser(action) },
                 onChange = { edit(it) },
                 onClose = { showSettings = false },
             )
@@ -1467,7 +1484,7 @@ private fun HomePage(
             Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .onGloballyPositioned { onGridBoundsChanged(it.boundsInRoot()) }
+                .onPlaced { onGridBoundsChanged(it.boundsInRoot()) }
                 .pointerInput(pageItems, homeCols, homeRows, s.doubleTapToSleep) {
                     detectTapGestures(
                         onTap = { onTapEmpty() },
@@ -1555,21 +1572,30 @@ private fun HomePage(
             )
         }
 
+        val density = LocalDensity.current
+        val cwPx = with(density) { cw.toPx() }
+        val chPx = with(density) { ch.toPx() }
         pageItems.forEach { item ->
             key(item.id) {
-                val animX by animateDpAsState(
-                    targetValue = cw * item.col,
-                    animationSpec = spring(dampingRatio = 0.85f, stiffness = 420f),
-                    label = "itemCol",
-                )
-                val animY by animateDpAsState(
-                    targetValue = ch * item.row,
-                    animationSpec = spring(dampingRatio = 0.85f, stiffness = 420f),
-                    label = "itemRow",
-                )
+                val targetXPx = cwPx * item.col
+                val targetYPx = chPx * item.row
+                val animXPx = remember { Animatable(targetXPx) }
+                val animYPx = remember { Animatable(targetYPx) }
+                LaunchedEffect(targetXPx) {
+                    if (animXPx.targetValue != targetXPx) {
+                        animXPx.animateTo(targetXPx, spring(dampingRatio = 0.85f, stiffness = 420f))
+                    }
+                }
+                LaunchedEffect(targetYPx) {
+                    if (animYPx.targetValue != targetYPx) {
+                        animYPx.animateTo(targetYPx, spring(dampingRatio = 0.85f, stiffness = 420f))
+                    }
+                }
                 Box(
                     Modifier
-                        .offset(animX, animY)
+                        .offset {
+                            IntOffset(animXPx.value.roundToInt(), animYPx.value.roundToInt())
+                        }
                         .size(cw * item.spanX, ch * item.spanY)
                         .padding(2.dp),
                     contentAlignment = Alignment.Center,

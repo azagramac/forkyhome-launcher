@@ -1,0 +1,22 @@
+# Baseline Profile for AOSP Launcher
+# Startup, Repository & Icon Cache
+HSPLdev/azagra/launcher_aosp/LauncherApp;->onCreate()V
+HSPLdev/azagra/launcher_aosp/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLdev/azagra/launcher_aosp/MainActivity;->onStart()V
+HSPLdev/azagra/launcher_aosp/data/AppRepository;->**(**)**
+HSPLdev/azagra/launcher_aosp/data/IconPacks;->**(**)**
+HSPLdev/azagra/launcher_aosp/data/SettingsStore;->**(**)**
+HSPLdev/azagra/launcher_aosp/data/ModelsKt;->**(**)**
+
+# Launcher UI, Home Pager, App Drawer & Icons
+HSPLdev/azagra/launcher_aosp/ui/LauncherScreenKt;->**(**)**
+HSPLdev/azagra/launcher_aosp/ui/DrawerKt;->**(**)**
+HSPLdev/azagra/launcher_aosp/ui/DrawerState;->**(**)**
+HSPLdev/azagra/launcher_aosp/ui/AppIconKt;->**(**)**
+HSPLdev/azagra/launcher_aosp/ui/AtAGlanceKt;->**(**)**
+HSPLdev/azagra/launcher_aosp/ui/WidgetsKt;->**(**)**
+
+# Compose Foundation & Runtime hot paths (LazyVerticalGrid, HorizontalPager, GraphicsLayer)
+HSPLandroidx/compose/foundation/lazy/grid/**;->**(**)**
+HSPLandroidx/compose/foundation/pager/**;->**(**)**
+HSPLandroidx/compose/ui/graphics/**;->**(**)**

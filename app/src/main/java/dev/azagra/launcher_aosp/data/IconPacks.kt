@@ -40,6 +40,11 @@ class IconPacks(private val ctx: Context) {
     private var iconUpons: List<String> = emptyList()
     private var scaleFactor: Float = 1f
     private var res: Resources? = null
+    private val maskBitmapCache = HashMap<String, Bitmap?>()
+    private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+        xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
+    }
 
     private val actions = listOf(
         "org.adw.launcher.THEMES",
@@ -87,6 +92,7 @@ class IconPacks(private val ctx: Context) {
         iconUpons = emptyList()
         scaleFactor = 1f
         res = null
+        maskBitmapCache.clear()
         if (pkg == null) return
 
         runCatching {
@@ -200,6 +206,14 @@ class IconPacks(private val ctx: Context) {
         return loadPackDrawable(r, pkg, name)
     }
 
+    private fun loadCachedLayerBitmap(r: Resources, pkg: String, name: String, sizePx: Int): Bitmap? {
+        val cacheKey = "$name@$sizePx"
+        if (maskBitmapCache.containsKey(cacheKey)) return maskBitmapCache[cacheKey]
+        val bmp = loadPackDrawable(r, pkg, name)?.let { runCatching { it.toBitmap(sizePx, sizePx) }.getOrNull() }
+        maskBitmapCache[cacheKey] = bmp
+        return bmp
+    }
+
     @Synchronized
     fun renderBitmap(c: ComponentName, baseDrawable: Drawable, sizePx: Int): Bitmap? {
         val r = res ?: return null
@@ -216,39 +230,36 @@ class IconPacks(private val ctx: Context) {
         return runCatching {
             val out = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(out)
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
             val iconLayer = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
             val iconCanvas = Canvas(iconLayer)
             val scaledSize = (sizePx * clampIconPackScale(scaleFactor)).roundToInt().coerceAtLeast(1)
             val pad = (sizePx - scaledSize) / 2f
             val rawBmp = baseDrawable.toBitmap(scaledSize, scaledSize)
-            iconCanvas.drawBitmap(rawBmp, pad, pad, paint)
+            iconCanvas.drawBitmap(rawBmp, pad, pad, bitmapPaint)
+            rawBmp.recycle()
 
             if (iconMasks.isNotEmpty()) {
                 val maskName = iconMasks[abs(c.packageName.hashCode()) % iconMasks.size]
-                loadPackDrawable(r, pkg, maskName)?.let { maskDr ->
-                    val maskBmp = maskDr.toBitmap(sizePx, sizePx)
-                    val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-                        xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
-                    }
+                loadCachedLayerBitmap(r, pkg, maskName, sizePx)?.let { maskBmp ->
                     iconCanvas.drawBitmap(maskBmp, 0f, 0f, maskPaint)
                 }
             }
 
             if (iconBacks.isNotEmpty()) {
                 val backName = iconBacks[abs(c.packageName.hashCode()) % iconBacks.size]
-                loadPackDrawable(r, pkg, backName)?.let { backDr ->
-                    canvas.drawBitmap(backDr.toBitmap(sizePx, sizePx), 0f, 0f, paint)
+                loadCachedLayerBitmap(r, pkg, backName, sizePx)?.let { backBmp ->
+                    canvas.drawBitmap(backBmp, 0f, 0f, bitmapPaint)
                 }
             }
 
-            canvas.drawBitmap(iconLayer, 0f, 0f, paint)
+            canvas.drawBitmap(iconLayer, 0f, 0f, bitmapPaint)
+            iconLayer.recycle()
 
             if (iconUpons.isNotEmpty()) {
                 val uponName = iconUpons[abs(c.packageName.hashCode()) % iconUpons.size]
-                loadPackDrawable(r, pkg, uponName)?.let { uponDr ->
-                    canvas.drawBitmap(uponDr.toBitmap(sizePx, sizePx), 0f, 0f, paint)
+                loadCachedLayerBitmap(r, pkg, uponName, sizePx)?.let { uponBmp ->
+                    canvas.drawBitmap(uponBmp, 0f, 0f, bitmapPaint)
                 }
             }
 

@@ -1,7 +1,11 @@
 package dev.azagra.launcher_aosp.ui
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -45,7 +49,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -113,7 +117,6 @@ fun AppIcon(
     var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     val haptics = LocalHapticFeedback.current
     val bitmap = if (useHomeIcon) app.homeIcon else app.icon
-    val clipShape = remember(iconShape) { iconMaskShape(iconShape) }
 
     val targetScale = when {
         isBeingDragged -> 0.85f
@@ -121,16 +124,15 @@ fun AppIcon(
         pressingDown -> 0.93f
         else -> 1f
     }
-    val animatedScale by animateFloatAsState(
-        targetValue = targetScale,
-        animationSpec = spring(dampingRatio = 0.72f, stiffness = 550f),
-        label = "iconScale",
-    )
-    val animatedAlpha by animateFloatAsState(
-        targetValue = if (isBeingDragged) 0.18f else 1f,
-        animationSpec = spring(stiffness = 500f),
-        label = "iconAlpha",
-    )
+    val scaleAnim = remember { Animatable(1f) }
+    LaunchedEffect(targetScale) {
+        if (scaleAnim.targetValue != targetScale) {
+            scaleAnim.animateTo(
+                targetValue = targetScale,
+                animationSpec = spring(dampingRatio = 0.72f, stiffness = 550f),
+            )
+        }
+    }
 
     val currentOnClick by rememberUpdatedState(onClick)
     val currentActionsProvider by rememberUpdatedState(actionsProvider)
@@ -141,7 +143,7 @@ fun AppIcon(
 
     Box(
         modifier = modifier
-            .onGloballyPositioned { coords = it }
+            .onPlaced { coords = it }
             .pointerInput(app.key, enableDrag) {
                 val dragThresholdPx = 4.dp.toPx()
                 awaitEachGesture {
@@ -205,9 +207,10 @@ fun AppIcon(
                 }
             }
             .graphicsLayer {
-                alpha = animatedAlpha
-                scaleX = animatedScale
-                scaleY = animatedScale
+                alpha = if (isBeingDragged) 0.18f else 1f
+                val s = scaleAnim.value
+                scaleX = s
+                scaleY = s
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -220,9 +223,7 @@ fun AppIcon(
                     bitmap = bitmap,
                     contentDescription = app.label,
                     filterQuality = FilterQuality.Medium,
-                    modifier = Modifier
-                        .size(iconSize)
-                        .let { if (iconShape != IconShape.DEFAULT) it.clip(clipShape) else it },
+                    modifier = Modifier.size(iconSize),
                 )
                 if (badge > 0) {
                     Badge(
@@ -244,9 +245,11 @@ fun AppIcon(
             }
         }
         if (menu) {
-            val actions = remember(app.key) { currentActionsProvider() }
-            val shortcuts = actions.filter { it.isShortcut }
-            val standardActions = actions.filter { !it.isShortcut }
+            val actions by produceState<List<MenuAction>>(emptyList(), app.key) {
+                value = withContext(Dispatchers.IO) { currentActionsProvider() }
+            }
+            val shortcuts = remember(actions) { actions.filter { it.isShortcut } }
+            val standardActions = remember(actions) { actions.filter { !it.isShortcut } }
             DropdownMenu(
                 expanded = true,
                 onDismissRequest = { menu = false },
@@ -350,16 +353,15 @@ fun FolderIcon(
         pressingDown -> 0.93f
         else -> 1f
     }
-    val animatedScale by animateFloatAsState(
-        targetValue = targetScale,
-        animationSpec = spring(dampingRatio = 0.72f, stiffness = 550f),
-        label = "folderScale",
-    )
-    val animatedAlpha by animateFloatAsState(
-        targetValue = if (isBeingDragged) 0.18f else 1f,
-        animationSpec = spring(stiffness = 500f),
-        label = "folderAlpha",
-    )
+    val scaleAnim = remember { Animatable(1f) }
+    LaunchedEffect(targetScale) {
+        if (scaleAnim.targetValue != targetScale) {
+            scaleAnim.animateTo(
+                targetValue = targetScale,
+                animationSpec = spring(dampingRatio = 0.72f, stiffness = 550f),
+            )
+        }
+    }
 
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnPressHoldChange by rememberUpdatedState(onPressHoldChange)
@@ -371,7 +373,7 @@ fun FolderIcon(
 
     Box(
         modifier = modifier
-            .onGloballyPositioned { coords = it }
+            .onPlaced { coords = it }
             .pointerInput(enableDrag) {
                 val dragThresholdPx = 4.dp.toPx()
                 awaitEachGesture {
@@ -433,9 +435,10 @@ fun FolderIcon(
                 }
             }
             .graphicsLayer {
-                alpha = animatedAlpha
-                scaleX = animatedScale
-                scaleY = animatedScale
+                alpha = if (isBeingDragged) 0.18f else 1f
+                val s = scaleAnim.value
+                scaleX = s
+                scaleY = s
             },
         contentAlignment = Alignment.Center,
     ) {

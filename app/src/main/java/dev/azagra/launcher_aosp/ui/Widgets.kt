@@ -46,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -54,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -78,6 +80,8 @@ import dev.azagra.launcher_aosp.widgets.WidgetController
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val WidgetSheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 private val WidgetItemShape = RoundedCornerShape(20.dp)
@@ -164,7 +168,11 @@ fun WidgetView(
                     currentOnPressHoldChange(false)
                     currentOnActivateResizeFrame()
                 }
-                v.updateAppWidgetSize(Bundle(), listOf(SizeF(w, h)))
+                val sizeKey = w to h
+                if (v.tag != sizeKey) {
+                    v.tag = sizeKey
+                    v.updateAppWidgetSize(Bundle(), listOf(SizeF(w, h)))
+                }
             },
         )
     }
@@ -527,12 +535,14 @@ fun WidgetPicker(
     onDismiss: () -> Unit,
 ) {
     val ctx = LocalContext.current
-    val entries = remember {
-        val pm = ctx.packageManager
-        controller.manager.installedProviders
-            .filter { it.widgetCategory and AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN != 0 }
-            .map { it to it.loadLabel(pm) }
-            .sortedBy { it.second.lowercase() }
+    val entries by produceState<List<Pair<AppWidgetProviderInfo, String>>>(emptyList(), controller) {
+        value = withContext(Dispatchers.IO) {
+            val pm = ctx.packageManager
+            controller.manager.installedProviders
+                .filter { it.widgetCategory and AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN != 0 }
+                .map { it to it.loadLabel(pm) }
+                .sortedBy { it.second.lowercase() }
+        }
     }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -551,11 +561,13 @@ fun WidgetPicker(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(entries, key = { it.first.provider.flattenToString() }) { (info, label) ->
-                val icon = remember(info) {
-                    runCatching {
-                        info.loadIcon(ctx, ctx.resources.displayMetrics.densityDpi)
-                            ?.toBitmap(96, 96)?.asImageBitmap()
-                    }.getOrNull()
+                val densityDpi = ctx.resources.displayMetrics.densityDpi
+                val icon by produceState<ImageBitmap?>(null, info.provider) {
+                    value = withContext(Dispatchers.IO) {
+                        runCatching {
+                            info.loadIcon(ctx, densityDpi)?.toBitmap(96, 96)?.asImageBitmap()
+                        }.getOrNull()
+                    }
                 }
                 Surface(
                     shape = WidgetItemShape,
