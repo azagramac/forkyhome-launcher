@@ -143,7 +143,7 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
             null
         }
         val launched = runCatching {
-            launcherApps.startMainActivity(app.component, app.user, sourceBounds, opts)
+            launcherApps.startMainActivity(app.component, app.user ?: Process.myUserHandle(), sourceBounds, opts)
         }.isSuccess
         if (!launched) {
             launchFallback(context, app)
