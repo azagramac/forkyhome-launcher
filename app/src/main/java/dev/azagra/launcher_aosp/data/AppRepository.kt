@@ -82,6 +82,18 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
                 }
             }
         }, filter, ContextCompat.RECEIVER_EXPORTED)
+
+        val dateFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_DATE_CHANGED)
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+        }
+        ContextCompat.registerReceiver(ctx, object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, i: Intent?) {
+                if (config.pack != null) refresh()
+            }
+        }, dateFilter, ContextCompat.RECEIVER_EXPORTED)
+
         refresh()
     }
 
@@ -283,9 +295,18 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
             packs.renderBitmap(info.componentName, systemDrawable, ICON_PX)
         } else null
 
+        val isFreeformPackIcon = packBitmap != null && !packs.hasMaskOrBack()
         val rawNormal = packBitmap ?: systemDrawable.toBitmap(ICON_PX, ICON_PX)
-        val normalBitmap = clipBitmapToShape(rawNormal, c.shape)
-        if (normalBitmap !== rawNormal) rawNormal.recycle()
+        val normalizedNormal = if (packBitmap != null) normalizeOpticalSize(rawNormal) else rawNormal
+        if (normalizedNormal !== rawNormal) rawNormal.recycle()
+
+        val normalBitmap = if (isFreeformPackIcon) {
+            normalizedNormal
+        } else {
+            val clipped = clipBitmapToShape(normalizedNormal, c.shape)
+            if (clipped !== normalizedNormal) normalizedNormal.recycle()
+            clipped
+        }
 
         val homeBitmap =
             if (packBitmap == null && c.themed && systemDrawable is AdaptiveIconDrawable) {
@@ -301,6 +322,48 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
                 normalBitmap
             }
         return normalBitmap to homeBitmap
+    }
+
+    private fun normalizeOpticalSize(src: Bitmap, targetFillRatio: Float = 0.86f): Bitmap {
+        val w = src.width
+        val h = src.height
+        if (w <= 0 || h <= 0) return src
+        val pixels = IntArray(w * h)
+        src.getPixels(pixels, 0, w, 0, 0, w, h)
+        var minX = w
+        var minY = h
+        var maxX = -1
+        var maxY = -1
+        for (y in 0 until h step 2) {
+            val rowOffset = y * w
+            for (x in 0 until w step 2) {
+                val alpha = (pixels[rowOffset + x] ushr 24) and 0xFF
+                if (alpha > 16) {
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+            }
+        }
+        if (maxX < minX || maxY < minY) return src
+        val contentW = (maxX - minX + 1).toFloat()
+        val contentH = (maxY - minY + 1).toFloat()
+        val maxDim = maxOf(contentW, contentH)
+        val desiredMax = w * targetFillRatio
+        val ratio = desiredMax / maxDim
+        if (ratio in 0.94f..1.06f) return src
+
+        val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        val dstW = contentW * ratio
+        val dstH = contentH * ratio
+        val left = (w - dstW) / 2f
+        val top = (h - dstH) / 2f
+        val srcRect = Rect(minX, minY, maxX + 1, maxY + 1)
+        val dstRect = RectF(left, top, left + dstW, top + dstH)
+        canvas.drawBitmap(src, srcRect, dstRect, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+        return out
     }
 
     private fun clipBitmapToShape(src: Bitmap, shape: IconShape): Bitmap {

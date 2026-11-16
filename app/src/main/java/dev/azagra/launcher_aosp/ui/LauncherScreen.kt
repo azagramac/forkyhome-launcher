@@ -1133,10 +1133,8 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         val keyboardController = LocalSoftwareKeyboardController.current
         AnimatedVisibility(
             visible = openFolderItem != null,
-            enter = fadeIn(spring(stiffness = Spring.StiffnessMedium)) +
-                scaleIn(initialScale = 0.92f, animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMedium)),
-            exit = fadeOut(spring(stiffness = Spring.StiffnessMedium)) +
-                scaleOut(targetScale = 0.92f, animationSpec = spring(stiffness = Spring.StiffnessMedium)),
+            enter = fadeIn(spring(stiffness = Spring.StiffnessMedium)),
+            exit = fadeOut(spring(stiffness = Spring.StiffnessMedium)),
         ) {
             val activeFolder = openFolderItem ?: lastVisibleFolder ?: return@AnimatedVisibility
             val payload = remember(activeFolder.data) { FolderPayload.decode(activeFolder.data) }
@@ -1192,6 +1190,16 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                     tonalElevation = 8.dp,
                     shadowElevation = 12.dp,
                     modifier = Modifier
+                        .animateEnterExit(
+                            enter = scaleIn(
+                                initialScale = 0.90f,
+                                animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMedium),
+                            ),
+                            exit = scaleOut(
+                                targetScale = 0.90f,
+                                animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                            ),
+                        )
                         .padding(horizontal = 28.dp)
                         .widthIn(min = 260.dp, max = 360.dp)
                         .clickable(

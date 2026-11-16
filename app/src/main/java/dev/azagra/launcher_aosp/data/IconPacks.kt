@@ -152,6 +152,9 @@ class IconPacks(private val ctx: Context) {
                 runCatching { stream?.close() }
             }
 
+            parseSupplementaryXml(r, pkg, "appmap", cMap, pMap)
+            parseSupplementaryXml(r, pkg, "theme_resources", cMap, pMap)
+
             componentMap = cMap
             packageMap = pMap
             calendarMap = calMap
@@ -162,6 +165,53 @@ class IconPacks(private val ctx: Context) {
             res = r
         }
     }
+
+    private fun parseSupplementaryXml(
+        r: Resources,
+        pkg: String,
+        resName: String,
+        compOut: MutableMap<String, String>,
+        pkgOut: MutableMap<String, String>,
+    ) {
+        val xmlId = r.getIdentifier(resName, "xml", pkg)
+        if (xmlId == 0) return
+        runCatching {
+            val parser = r.getXml(xmlId)
+            var ev = parser.eventType
+            while (ev != XmlPullParser.END_DOCUMENT) {
+                if (ev == XmlPullParser.START_TAG) {
+                    when (parser.name) {
+                        "item" -> {
+                            val cls = parser.getAttributeValue(null, "class")
+                            val name = parser.getAttributeValue(null, "name")
+                            if (!cls.isNullOrBlank() && !name.isNullOrBlank()) {
+                                compOut.putIfAbsent(cls, name)
+                            }
+                        }
+                        "AppIcon" -> {
+                            val rawComp = parser.getAttributeValue(null, "name")
+                            val img = parser.getAttributeValue(null, "image")
+                            if (!rawComp.isNullOrBlank() && !img.isNullOrBlank()) {
+                                val normalized = rawComp.removePrefix("ComponentInfo{").removeSuffix("}").trim()
+                                if ('/' in normalized) {
+                                    val p = normalized.substringBefore('/')
+                                    val c = normalized.substringAfter('/')
+                                    val fullCls = if (c.startsWith(".")) "$p$c" else c
+                                    compOut.putIfAbsent("$p/$fullCls", img)
+                                    pkgOut.putIfAbsent(p, img)
+                                }
+                            }
+                        }
+                    }
+                }
+                ev = parser.next()
+            }
+        }
+    }
+
+    @Synchronized
+    fun hasMaskOrBack(): Boolean =
+        iconBacks.isNotEmpty() || iconMasks.isNotEmpty() || iconUpons.isNotEmpty()
 
     private fun collectImgAttributes(parser: XmlPullParser, out: MutableList<String>) {
         for (i in 0 until parser.attributeCount) {
