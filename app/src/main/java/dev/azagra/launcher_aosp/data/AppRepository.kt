@@ -248,7 +248,7 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
         c: IconConfig,
     ): Pair<ImageBitmap, ImageBitmap> {
         val daySuffix = if (c.pack != null) "_d${Calendar.getInstance().get(Calendar.DAY_OF_MONTH)}" else ""
-        val cfgKey = "${c.pack ?: "sys"}_${c.themed}_${c.dark}_${c.shape.name}$daySuffix"
+        val cfgKey = "v2_${c.pack ?: "sys"}_${c.themed}_${c.dark}_${c.shape.name}$daySuffix"
         val baseId = "${info.componentName.packageName}_${info.componentName.className}_${user.hashCode()}_${cfgKey.hashCode()}"
         val normalFile = File(cacheDir, "${baseId}_n.png")
         val homeFile = File(cacheDir, "${baseId}_h.png")
@@ -297,7 +297,11 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
 
         val isFreeformPackIcon = packBitmap != null && !packs.hasMaskOrBack()
         val rawNormal = packBitmap ?: systemDrawable.toBitmap(ICON_PX, ICON_PX)
-        val normalizedNormal = if (packBitmap != null) normalizeOpticalSize(rawNormal) else rawNormal
+        val normalizedNormal = when {
+            packBitmap != null -> normalizeOpticalSize(rawNormal, targetFillRatio = 0.90f)
+            c.pack != null -> normalizeOpticalSize(rawNormal, targetFillRatio = 0.80f)
+            else -> rawNormal
+        }
         if (normalizedNormal !== rawNormal) rawNormal.recycle()
 
         val normalBitmap = if (isFreeformPackIcon) {
@@ -312,8 +316,10 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
             if (packBitmap == null && c.themed && systemDrawable is AdaptiveIconDrawable) {
                 val rawThemed = themed(systemDrawable, c.dark)?.toBitmap(ICON_PX, ICON_PX)
                 if (rawThemed != null) {
-                    val clipped = clipBitmapToShape(rawThemed, c.shape)
-                    if (clipped !== rawThemed) rawThemed.recycle()
+                    val normalizedThemed = if (c.pack != null) normalizeOpticalSize(rawThemed, targetFillRatio = 0.80f) else rawThemed
+                    if (normalizedThemed !== rawThemed) rawThemed.recycle()
+                    val clipped = clipBitmapToShape(normalizedThemed, c.shape)
+                    if (clipped !== normalizedThemed) normalizedThemed.recycle()
                     clipped
                 } else {
                     normalBitmap
