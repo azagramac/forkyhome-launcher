@@ -407,7 +407,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 },
             )
         }.onFailure {
-            toast(ctx.getString(R.string.auth_protected_app_title))
+            Toast.makeText(ctx, ctx.getString(R.string.auth_protected_app_title), Toast.LENGTH_SHORT).show()
         }
     }
 
