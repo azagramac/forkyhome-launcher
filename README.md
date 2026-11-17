@@ -2,17 +2,17 @@
   <img src="https://developer.android.com/static/images/brand/android-head_3D.svg" width="96" alt="Android" />
 </p>
 
-<h1 align="center">AOSP Launcher</h1>
+<h1 align="center">ForkyHome</h1>
 
 <p align="center">
-  A lightweight, high-performance Android home screen launcher built with <strong>Kotlin</strong> and <strong>Jetpack Compose</strong>, inspired by <strong>LineageOS Trebuchet</strong> and <strong>AOSP Launcher3</strong>, designed with <strong>Material 3 / Material You</strong>.
+  A lightweight, high-performance Android home screen launcher built with <strong>Kotlin</strong> and <strong>Jetpack Compose</strong>, inspired by <strong>LineageOS Trebuchet</strong> and <strong>ForkyHome3</strong>, designed with <strong>Material 3 / Material You</strong>.
 </p>
 
 ---
 
 ## Compatibility & Specs
 
-* **Package**: `dev.azagra.launcher_aosp`
+* **Package**: `dev.azagra.forkyhome`
 * **Android Compatibility**: **Android 14 (API 34)** up to **Android 16 (API 36)** (`minSdk = 34`, `targetSdk = 36`, `compileSdk = 36`)
 * **Multi-Profile Support**: Queries activities across all active user profiles (`LauncherApps.profiles`), including Work Profile and Android 15+ Private Space
 * **Languages**: English (default) and Spanish (`values-es/`)
@@ -39,7 +39,7 @@ Built to match the responsiveness and low power footprint of native AOSP launche
 
 ## Privacy & Security
 
-AOSP Launcher is designed with strict local-only privacy:
+ForkyHome is designed with strict local-only privacy:
 
 * **Zero Network Access**: Does **not** declare `android.permission.INTERNET`. No telemetry, analytics, crash reporting, or remote requests ever leave your device.
 * **No Cloud Backups**: `android:allowBackup="false"` prevents launcher layout and preferences from being uploaded to cloud backups.

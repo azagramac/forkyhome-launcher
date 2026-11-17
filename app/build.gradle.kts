@@ -4,8 +4,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val appId = "dev.azagra.launcher_aosp"
-val apkBaseName = "dev.azagra.launcher-aosp"
+val appId = "dev.azagra.forkyhome"
+val apkBaseName = "dev.azagra.forkyhome"
 val appVersionName = (findProperty("versionName") as String?) ?: "0.1.0"
 val appVersionCode = (findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
 

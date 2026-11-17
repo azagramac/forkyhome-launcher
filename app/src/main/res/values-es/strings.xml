@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">AOSP Launcher</string>
+    <string name="app_name">ForkyHome</string>
 
     <string name="search_apps">Buscar aplicaciones</string>
 
@@ -84,7 +84,7 @@
     <string name="settings_double_tap_sleep">Doble toque para apagar pantalla</string>
     <string name="settings_double_tap_sleep_desc">Toca dos veces en un hueco vacío del escritorio para bloquear la pantalla</string>
     <string name="settings_grant_accessibility_access">Activar servicio de accesibilidad</string>
-    <string name="toast_enable_accessibility_lock">Activa AOSP Launcher en Accesibilidad para poder bloquear la pantalla</string>
+    <string name="toast_enable_accessibility_lock">Activa ForkyHome en Accesibilidad para poder bloquear la pantalla</string>
     <string name="settings_at_a_glance">De un vistazo</string>
     <string name="settings_at_a_glance_desc">Muestra fecha, hora, eventos de calendario, alarmas y batería</string>
     <string name="settings_at_a_glance_toggle">Activar De un vistazo</string>
@@ -125,6 +125,7 @@
     <string name="about_abi">Arquitectura</string>
     <string name="about_display">Pantalla</string>
     <string name="about_source_code">Código fuente</string>
+    <string name="about_privacy_policy">Política de privacidad</string>
     <string name="new_page_drop_hint">Suelta aquí para crear una nueva página</string>
     <string name="settings_set_default_launcher">Establecer como launcher predeterminado</string>
 

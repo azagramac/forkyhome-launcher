@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">AOSP Launcher</string>
+    <string name="app_name">ForkyHome</string>
 
     <string name="search_apps">Search apps</string>
 
@@ -84,7 +84,7 @@
     <string name="settings_double_tap_sleep">Double-tap to sleep</string>
     <string name="settings_double_tap_sleep_desc">Double-tap an empty area on the home screen to turn off and lock the screen</string>
     <string name="settings_grant_accessibility_access">Enable accessibility service</string>
-    <string name="toast_enable_accessibility_lock">Enable AOSP Launcher in Accessibility settings to lock the screen</string>
+    <string name="toast_enable_accessibility_lock">Enable ForkyHome in Accessibility settings to lock the screen</string>
     <string name="settings_at_a_glance">At a Glance</string>
     <string name="settings_at_a_glance_desc">Show date, time, calendar events, alarms, and battery status</string>
     <string name="settings_at_a_glance_toggle">Enable At a Glance</string>
@@ -125,6 +125,8 @@
     <string name="about_abi">Architecture</string>
     <string name="about_display">Display</string>
     <string name="about_source_code">Source code</string>
+    <string name="about_privacy_policy">Privacy policy</string>
+    <string name="footer_privacy_url" translatable="false">https://github.com/azagramac/aosp-launcher/blob/main/PRIVACY.md</string>
     <string name="new_page_drop_hint">Drop here to create a new page</string>
     <string name="settings_set_default_launcher">Set as default launcher</string>
 

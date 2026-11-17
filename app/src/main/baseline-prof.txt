@@ -1,20 +1,20 @@
-# Baseline Profile for AOSP Launcher
+# Baseline Profile for ForkyHome
 # Startup, Repository & Icon Cache
-HSPLdev/azagra/launcher_aosp/LauncherApp;->onCreate()V
-HSPLdev/azagra/launcher_aosp/MainActivity;->onCreate(Landroid/os/Bundle;)V
-HSPLdev/azagra/launcher_aosp/MainActivity;->onStart()V
-HSPLdev/azagra/launcher_aosp/data/AppRepository;->**(**)**
-HSPLdev/azagra/launcher_aosp/data/IconPacks;->**(**)**
-HSPLdev/azagra/launcher_aosp/data/SettingsStore;->**(**)**
-HSPLdev/azagra/launcher_aosp/data/ModelsKt;->**(**)**
+HSPLdev/azagra/forkyhome/LauncherApp;->onCreate()V
+HSPLdev/azagra/forkyhome/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLdev/azagra/forkyhome/MainActivity;->onStart()V
+HSPLdev/azagra/forkyhome/data/AppRepository;->**(**)**
+HSPLdev/azagra/forkyhome/data/IconPacks;->**(**)**
+HSPLdev/azagra/forkyhome/data/SettingsStore;->**(**)**
+HSPLdev/azagra/forkyhome/data/ModelsKt;->**(**)**
 
 # Launcher UI, Home Pager, App Drawer & Icons
-HSPLdev/azagra/launcher_aosp/ui/LauncherScreenKt;->**(**)**
-HSPLdev/azagra/launcher_aosp/ui/DrawerKt;->**(**)**
-HSPLdev/azagra/launcher_aosp/ui/DrawerState;->**(**)**
-HSPLdev/azagra/launcher_aosp/ui/AppIconKt;->**(**)**
-HSPLdev/azagra/launcher_aosp/ui/AtAGlanceKt;->**(**)**
-HSPLdev/azagra/launcher_aosp/ui/WidgetsKt;->**(**)**
+HSPLdev/azagra/forkyhome/ui/LauncherScreenKt;->**(**)**
+HSPLdev/azagra/forkyhome/ui/DrawerKt;->**(**)**
+HSPLdev/azagra/forkyhome/ui/DrawerState;->**(**)**
+HSPLdev/azagra/forkyhome/ui/AppIconKt;->**(**)**
+HSPLdev/azagra/forkyhome/ui/AtAGlanceKt;->**(**)**
+HSPLdev/azagra/forkyhome/ui/WidgetsKt;->**(**)**
 
 # Compose Foundation & Runtime hot paths (LazyVerticalGrid, HorizontalPager, GraphicsLayer)
 HSPLandroidx/compose/foundation/lazy/grid/**;->**(**)**
