@@ -114,6 +114,17 @@
     <string name="cat_privacy">Privacidad</string>
     <string name="cat_privacy_desc">Aplicaciones ocultas y protegidas con biometría</string>
     <string name="cat_about">Acerca de</string>
+    <string name="about_launcher_info">Launcher</string>
+    <string name="about_version">Versión</string>
+    <string name="about_build">Compilación</string>
+    <string name="about_package">Paquete</string>
+    <string name="about_license">Licencia</string>
+    <string name="about_device_info">Dispositivo</string>
+    <string name="about_model">Modelo</string>
+    <string name="about_android">Android</string>
+    <string name="about_abi">Arquitectura</string>
+    <string name="about_display">Pantalla</string>
+    <string name="about_source_code">Código fuente</string>
     <string name="new_page_drop_hint">Suelta aquí para crear una nueva página</string>
     <string name="settings_set_default_launcher">Establecer como launcher predeterminado</string>
 

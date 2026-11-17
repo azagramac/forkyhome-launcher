@@ -5,6 +5,7 @@ import android.app.role.RoleManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -84,7 +85,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -761,50 +764,91 @@ fun SettingsScreen(
 
                         SettingsRoute.ABOUT -> {
                             val repoUrl = stringResource(R.string.footer_repo_url)
+                            val dm = ctx.resources.displayMetrics
+                            val deviceModel = remember {
+                                val mfg = Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+                                val mdl = Build.MODEL
+                                if (mdl.startsWith(mfg, ignoreCase = true)) mdl else "$mfg $mdl"
+                            }
+                            val androidVersion = remember {
+                                "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
+                            }
+                            val abi = remember {
+                                Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"
+                            }
+                            val displayInfo = remember(dm.widthPixels, dm.heightPixels, dm.densityDpi) {
+                                "${dm.widthPixels} × ${dm.heightPixels} · ${dm.densityDpi} dpi"
+                            }
+
                             Surface(
                                 shape = SectionCardShape,
-                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 24.dp, horizontal = 16.dp),
+                                        .padding(vertical = 20.dp, horizontal = 16.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
                                     Text(
                                         text = stringResource(R.string.app_name),
-                                        style = MaterialTheme.typography.titleLarge,
+                                        style = MaterialTheme.typography.headlineSmall,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     )
                                     Text(
                                         text = stringResource(R.string.footer_version_build, versionName, versionCode),
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Spacer(Modifier.height(8.dp))
-                                    FilledTonalButton(
-                                        onClick = {
-                                            runCatching {
-                                                ctx.startActivity(
-                                                    Intent(Intent.ACTION_VIEW, Uri.parse(repoUrl))
-                                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                )
-                                            }
-                                        },
-                                    ) {
-                                        Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(stringResource(R.string.footer_open_source))
-                                    }
-                                    Text(
-                                        text = repoUrl.removePrefix("https://"),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
                                     )
                                 }
+                            }
+
+                            SectionGroup(
+                                title = stringResource(R.string.about_launcher_info),
+                                icon = Icons.Default.Info,
+                            ) {
+                                InfoKeyValueRow(stringResource(R.string.about_version), versionName)
+                                CardDivider()
+                                InfoKeyValueRow(stringResource(R.string.about_build), versionCode.toString())
+                                CardDivider()
+                                InfoKeyValueRow(stringResource(R.string.about_package), ctx.packageName)
+                                CardDivider()
+                                InfoKeyValueRow(stringResource(R.string.about_license), "GPL-3.0")
+                            }
+
+                            SectionGroup(
+                                title = stringResource(R.string.about_device_info),
+                                icon = Icons.Default.Settings,
+                            ) {
+                                InfoKeyValueRow(stringResource(R.string.about_model), deviceModel)
+                                CardDivider()
+                                InfoKeyValueRow(stringResource(R.string.about_android), androidVersion)
+                                CardDivider()
+                                InfoKeyValueRow(stringResource(R.string.about_abi), abi)
+                                CardDivider()
+                                InfoKeyValueRow(stringResource(R.string.about_display), displayInfo)
+                            }
+
+                            SectionGroup(
+                                title = stringResource(R.string.about_source_code),
+                                icon = GithubIcon,
+                            ) {
+                                ActionRow(
+                                    title = stringResource(R.string.footer_open_source),
+                                    subtitle = repoUrl.removePrefix("https://"),
+                                    icon = GithubIcon,
+                                    onClick = {
+                                        runCatching {
+                                            ctx.startActivity(
+                                                Intent(Intent.ACTION_VIEW, Uri.parse(repoUrl))
+                                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            )
+                                        }
+                                    },
+                                )
                             }
                         }
                     }
@@ -1009,6 +1053,76 @@ fun SettingsScreen(
             },
         )
     }
+}
+
+@Composable
+private fun InfoKeyValueRow(
+    label: String,
+    value: String,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(end = 16.dp),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+private val GithubIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "GitHub",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f,
+    ).apply {
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(12f, 2f)
+            curveTo(6.475f, 2f, 2f, 6.475f, 2f, 12f)
+            curveToRelative(0f, 4.425f, 2.8625f, 8.1625f, 6.8375f, 9.4875f)
+            curveToRelative(0.5f, 0.0875f, 0.6875f, -0.2125f, 0.6875f, -0.475f)
+            curveToRelative(0f, -0.2375f, -0.0125f, -1.025f, -0.0125f, -1.8625f)
+            curveToRelative(-2.5125f, 0.4625f, -3.1625f, -0.6125f, -3.3625f, -1.175f)
+            curveToRelative(-0.1125f, -0.2875f, -0.6f, -1.175f, -1.025f, -1.4125f)
+            curveToRelative(-0.35f, -0.1875f, -0.85f, -0.65f, -0.0125f, -0.6625f)
+            curveToRelative(0.7875f, -0.0125f, 1.35f, 0.725f, 1.5375f, 1.025f)
+            curveToRelative(0.9f, 1.5125f, 2.3375f, 1.0875f, 2.9125f, 0.825f)
+            curveToRelative(0.0875f, -0.65f, 0.35f, -1.0875f, 0.6375f, -1.3375f)
+            curveToRelative(-2.225f, -0.25f, -4.55f, -1.1125f, -4.55f, -4.9375f)
+            curveToRelative(0f, -1.0875f, 0.3875f, -1.9875f, 1.025f, -2.6875f)
+            curveToRelative(-0.1f, -0.25f, -0.45f, -1.275f, 0.1f, -2.65f)
+            curveToRelative(0f, 0f, 0.8375f, -0.2625f, 2.75f, 1.025f)
+            curveToRelative(0.8f, -0.225f, 1.65f, -0.3375f, 2.5f, -0.3375f)
+            curveToRelative(0.85f, 0f, 1.7f, 0.1125f, 2.5f, 0.3375f)
+            curveToRelative(1.9125f, -1.3f, 2.75f, -1.025f, 2.75f, -1.025f)
+            curveToRelative(0.55f, 1.375f, 0.2f, 2.4f, 0.1f, 2.65f)
+            curveToRelative(0.6375f, 0.7f, 1.025f, 1.5875f, 1.025f, 2.6875f)
+            curveToRelative(0f, 3.8375f, -2.3375f, 4.6875f, -4.5625f, 4.9375f)
+            curveToRelative(0.3625f, 0.3125f, 0.675f, 0.9125f, 0.675f, 1.85f)
+            curveToRelative(0f, 1.3375f, -0.0125f, 2.4125f, -0.0125f, 2.75f)
+            curveToRelative(0f, 0.2625f, 0.1875f, 0.575f, 0.6875f, 0.475f)
+            curveTo(19.1375f, 20.1625f, 22f, 16.4125f, 22f, 12f)
+            curveToRelative(0f, -5.525f, -4.475f, -10f, -10f, -10f)
+            close()
+        }
+    }.build()
 }
 
 @Composable
