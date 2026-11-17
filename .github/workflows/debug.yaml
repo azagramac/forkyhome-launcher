@@ -1,4 +1,4 @@
-name: 🔨 ForkyHome Debug (Testing)
+name: 🔨 build apk debug
 
 on:
   push:
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   debug-release:
-    name: 🤖 Build, Test & Publish Testing Release
+    name: 🤖 Build & Publish debug
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout repository
@@ -186,10 +186,84 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_DEBUG }}
+          REPO_URL: https://github.com/${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          RUN_NUM: ${{ github.run_number }}
+          COMMIT_SHA: ${{ github.sha }}
         if: env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
         run: |
           APK_FILE=$(ls dist/*.apk | head -n 1)
-          CAPTION="🧪 ForkyHome Testing (Build #${{ github.run_number }} · ${{ github.ref_name }})"
+          APK_NAME=$(basename "$APK_FILE")
+          APK_SIZE=$(du -h "$APK_FILE" | cut -f1)
+          APK_SHA256=$(cut -d' ' -f1 "${APK_FILE}.sha256" 2>/dev/null || sha256sum "$APK_FILE" | cut -d' ' -f1)
+
+          git fetch --tags --force || true
+          PREV_COMMIT=$(git rev-list -n 1 testing 2>/dev/null || true)
+          if [ -n "$PREV_COMMIT" ] && [ "$PREV_COMMIT" != "$COMMIT_SHA" ]; then
+            RANGE="${PREV_COMMIT}..HEAD"
+          else
+            RANGE="-n 10 HEAD"
+          fi
+
+          CAPTION_FILE="$RUNNER_TEMP/tg_caption.html"
+          python3 - "$RANGE" "$APK_NAME" "$APK_SIZE" "$APK_SHA256" > "$CAPTION_FILE" << 'EOF'
+          import html
+          import os
+          import re
+          import subprocess
+          import sys
+
+          git_range, apk_name, apk_size, apk_sha256 = sys.argv[1:5]
+          repo_url = os.environ["REPO_URL"]
+          version = os.environ.get("VERSION", "0.1.0")
+          run_num = os.environ["RUN_NUM"]
+          branch = html.escape(os.environ["BRANCH"])
+
+          cmd = ["git", "log"] + git_range.split() + ["--no-merges", "--pretty=format:%H|%h|%s|%b%x1e"]
+          raw = subprocess.check_output(cmd, text=True, errors="replace")
+
+          commit_lines = []
+          issues = set()
+          for entry in raw.split("\x1e"):
+              entry = entry.strip()
+              if not entry:
+                  continue
+              parts = entry.split("|", 3)
+              full_sha, short_sha = parts[0], parts[1]
+              subj = html.escape(parts[2] if len(parts) > 2 else "")
+              body = parts[3] if len(parts) > 3 else ""
+              if len(subj) > 65:
+                  subj = subj[:62] + "..."
+              commit_lines.append(f"• <a href=\"{repo_url}/commit/{full_sha}\">{short_sha}</a> {subj}")
+              for m in re.findall(r"#(\d+)", f"{parts[2] if len(parts) > 2 else ''}\n{body}"):
+                  issues.add(int(m))
+
+          header = (
+              f"🧪 <b>ForkyHome Testing</b>\n"
+              f"🏷 <b>Versión:</b> <code>v{version}</code> (Build <code>#{run_num}</code>)\n"
+              f"🌿 <b>Rama:</b> <code>{branch}</code>\n"
+              f"📦 <b>APK:</b> <code>{html.escape(apk_name)}</code> ({apk_size})\n"
+              f"🔒 <b>SHA-256:</b> <code>{apk_sha256[:16]}...</code>\n"
+              f"🔗 <a href=\"{repo_url}/releases/tag/testing\">Ver Release en GitHub</a>"
+          )
+
+          issues_block = ""
+          if issues:
+              links = ", ".join(f"<a href=\"{repo_url}/issues/{n}\">#{n}</a>" for n in sorted(issues))
+              issues_block = f"\n\n📋 <b>Issues:</b> {links}"
+
+          commits_block = ""
+          if commit_lines:
+              commits_block = "\n\n📝 <b>Commits:</b>\n"
+              for line in commit_lines[:8]:
+                  if len(header) + len(issues_block) + len(commits_block) + len(line) + 20 > 1000:
+                      commits_block += "• ..."
+                      break
+                  commits_block += line + "\n"
+
+          print((header + issues_block + commits_block).strip()[:1024])
+          EOF
+
           RESP_FILE="$RUNNER_TEMP/tg_resp.json"
           HTTP_CODE=$(curl -sS --http1.1 --connect-timeout 15 --max-time 120 \
             --retry 3 --retry-delay 5 --retry-all-errors \
@@ -197,7 +271,9 @@ jobs:
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
             -F "chat_id=${TELEGRAM_CHAT_ID}" \
             -F "document=@${APK_FILE}" \
-            -F "caption=${CAPTION}")
+            -F "parse_mode=HTML" \
+            -F "caption=<${CAPTION_FILE}")
+          rm -f "$CAPTION_FILE"
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
             echo "::warning::⚠️ Telegram upload failed with HTTP status $HTTP_CODE: $(cat "$RESP_FILE" 2>/dev/null)"
             rm -f "$RESP_FILE"
