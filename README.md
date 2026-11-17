@@ -5,7 +5,7 @@
 <h1 align="center">ForkyHome</h1>
 
 <p align="center">
-  A lightweight, high-performance Android home screen launcher built with <strong>Kotlin</strong> and <strong>Jetpack Compose</strong>, inspired by <strong>LineageOS Trebuchet</strong> and <strong>ForkyHome3</strong>, designed with <strong>Material 3 / Material You</strong>.
+  A lightweight, high-performance Android home screen launcher built with <strong>Kotlin</strong> and <strong>Jetpack Compose</strong>, inspired by <strong>LineageOS Trebuchet</strong> and <strong>AOSP</strong>, designed with <strong>Material 3 / Material You</strong>.
 </p>
 
 ---
