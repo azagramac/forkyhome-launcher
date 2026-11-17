@@ -36,20 +36,23 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBarsIgnoringVisibility
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -338,7 +341,7 @@ private fun expandNotificationsPanel(ctx: Context) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Container) {
     val ctx = LocalContext.current
@@ -907,8 +910,8 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                         }
                     },
                 )
-                .statusBarsPadding()
-                .navigationBarsPadding()
+                .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
+                .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility)
         ) {
             HorizontalPager(
                 state = pagerState,
@@ -1625,14 +1628,28 @@ private fun HomePage(
                 val targetYPx = chPx * item.row
                 val animXPx = remember { Animatable(targetXPx) }
                 val animYPx = remember { Animatable(targetYPx) }
-                LaunchedEffect(targetXPx) {
-                    if (animXPx.targetValue != targetXPx) {
-                        animXPx.animateTo(targetXPx, spring(dampingRatio = 0.85f, stiffness = 420f))
+                var lastCol by remember { mutableStateOf(item.col) }
+                var lastRow by remember { mutableStateOf(item.row) }
+                LaunchedEffect(targetXPx, item.col) {
+                    if (item.col != lastCol) {
+                        lastCol = item.col
+                        animXPx.animateTo(
+                            targetXPx,
+                            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 460f),
+                        )
+                    } else if (animXPx.value != targetXPx) {
+                        animXPx.snapTo(targetXPx)
                     }
                 }
-                LaunchedEffect(targetYPx) {
-                    if (animYPx.targetValue != targetYPx) {
-                        animYPx.animateTo(targetYPx, spring(dampingRatio = 0.85f, stiffness = 420f))
+                LaunchedEffect(targetYPx, item.row) {
+                    if (item.row != lastRow) {
+                        lastRow = item.row
+                        animYPx.animateTo(
+                            targetYPx,
+                            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 460f),
+                        )
+                    } else if (animYPx.value != targetYPx) {
+                        animYPx.snapTo(targetYPx)
                     }
                 }
                 Box(
