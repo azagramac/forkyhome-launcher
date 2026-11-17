@@ -1,12 +1,16 @@
 package dev.azagra.forkyhome
 
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.mutablePreferencesOf
+import androidx.datastore.preferences.core.stringPreferencesKey
 import dev.azagra.forkyhome.data.DrawerBg
 import dev.azagra.forkyhome.data.FolderPayload
 import dev.azagra.forkyhome.data.HomeItem
 import dev.azagra.forkyhome.data.IconShape
 import dev.azagra.forkyhome.data.ItemKind
 import dev.azagra.forkyhome.data.LauncherSettings
+import dev.azagra.forkyhome.data.SmartspaceTimeFormat
 import dev.azagra.forkyhome.data.ThemeMode
 import dev.azagra.forkyhome.data.readSettingsFromPreferences
 import dev.azagra.forkyhome.data.writeSettingsToPreferences
@@ -40,6 +44,12 @@ class SettingsPersistenceTest {
             swipeDownNotifications = false,
             doubleTapToSleep = true,
             showAtAGlance = false,
+            smartspaceShowDate = false,
+            smartspaceShowTime = true,
+            smartspaceTimeFormat = SmartspaceTimeFormat.TWENTY_FOUR_HOUR,
+            smartspaceShowCalendar = false,
+            smartspaceShowAlarm = false,
+            smartspaceShowBattery = false,
             hiddenApps = setOf("com.secret.app1", "com.secret.app2"),
             protectedApps = setOf("com.bank.app"),
             dock = listOf("com.android.dialer/.Main", "com.android.mms/.Main"),
@@ -87,5 +97,30 @@ class SettingsPersistenceTest {
 
         assertEquals(5, restored.dock.size)
         assertEquals(overfullDock.take(5), restored.dock)
+    }
+
+    @Test
+    fun `readSettingsFromPreferences falls back safely on invalid enums and clamps out-of-range values`() {
+        val prefs = mutablePreferencesOf(
+            stringPreferencesKey("theme") to "INVALID_THEME",
+            stringPreferencesKey("drawer_bg") to "NEON",
+            stringPreferencesKey("icon_shape") to "STAR",
+            stringPreferencesKey("smartspace_time_format") to "INVALID_FMT",
+            intPreferencesKey("home_cols") to 99,
+            intPreferencesKey("home_rows") to 1,
+            floatPreferencesKey("drawer_icon_scale") to 5.0f,
+            floatPreferencesKey("home_icon_scale") to 0.1f,
+        )
+
+        val restored = readSettingsFromPreferences(prefs)
+
+        assertEquals(ThemeMode.SYSTEM, restored.themeMode)
+        assertEquals(DrawerBg.SYSTEM, restored.drawerBg)
+        assertEquals(IconShape.DEFAULT, restored.iconShape)
+        assertEquals(SmartspaceTimeFormat.SYSTEM, restored.smartspaceTimeFormat)
+        assertEquals(6, restored.homeCols)
+        assertEquals(4, restored.homeRows)
+        assertEquals(1.20f, restored.drawerIconScale, 0.001f)
+        assertEquals(0.80f, restored.homeIconScale, 0.001f)
     }
 }
