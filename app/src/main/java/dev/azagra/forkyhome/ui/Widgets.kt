@@ -131,10 +131,7 @@ fun WidgetView(
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
-                val info = controller.manager.getAppWidgetInfo(id)
-                (controller.host.createView(ctx, id, info) as LongPressHostView).apply {
-                    clipToPadding = false
-                }
+                controller.getOrCreateView(ctx, id)
             },
             update = { v ->
                 v.onLongPressStart = { touchOffset, _ ->
@@ -166,11 +163,10 @@ fun WidgetView(
                 v.onLongPressRelease = {
                     startedDragging = false
                     currentOnPressHoldChange(false)
-                    currentOnActivateResizeFrame()
                 }
                 val sizeKey = w to h
-                if (v.tag != sizeKey) {
-                    v.tag = sizeKey
+                if (v.lastReportedSize != sizeKey) {
+                    v.lastReportedSize = sizeKey
                     v.updateAppWidgetSize(Bundle(), listOf(SizeF(w, h)))
                 }
             },
@@ -565,10 +561,13 @@ fun WidgetPicker(
                 val icon by produceState<ImageBitmap?>(null, info.provider) {
                     value = withContext(Dispatchers.IO) {
                         runCatching {
-                            info.loadIcon(ctx, densityDpi)?.toBitmap(96, 96)?.asImageBitmap()
+                            val dr = info.loadPreviewImage(ctx, densityDpi) ?: info.loadIcon(ctx, densityDpi)
+                            dr?.toBitmap(128, 128)?.asImageBitmap()
                         }.getOrNull()
                     }
                 }
+                val spanX = if (info.targetCellWidth > 0) info.targetCellWidth else ((info.minWidth / ctx.resources.displayMetrics.density + 30) / 70).toInt().coerceAtLeast(1)
+                val spanY = if (info.targetCellHeight > 0) info.targetCellHeight else ((info.minHeight / ctx.resources.displayMetrics.density + 30) / 70).toInt().coerceAtLeast(1)
                 Surface(
                     shape = WidgetItemShape,
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -582,8 +581,7 @@ fun WidgetPicker(
                         ),
                         headlineContent = { Text(label, style = MaterialTheme.typography.bodyLarge) },
                         supportingContent = {
-                            val d = ctx.resources.displayMetrics.density
-                            Text("${((info.minWidth / d + 30) / 70).toInt().coerceAtLeast(1)} × ${((info.minHeight / d + 30) / 70).toInt().coerceAtLeast(1)}")
+                            Text("$spanX × $spanY")
                         },
                         leadingContent = {
                             icon?.let { Image(it, null, Modifier.size(44.dp)) }

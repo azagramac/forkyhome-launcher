@@ -21,6 +21,7 @@ private const val REQ_CONFIGURE = 4242
 private const val REQ_RECONFIGURE = 4243
 
 class LongPressHostView(ctx: Context) : AppWidgetHostView(ctx) {
+    var lastReportedSize: Pair<Float, Float>? = null
     var onLongPressStart: ((touchOffsetInWidget: Offset, rawPos: Offset) -> Unit)? = null
     var onDragMove: ((rawDelta: Offset) -> Unit)? = null
     var onDragFinish: (() -> Unit)? = null
@@ -117,9 +118,24 @@ class WidgetController(
 ) {
     val host = LauncherWidgetHost(activity.applicationContext)
     val manager: AppWidgetManager = AppWidgetManager.getInstance(activity)
+    private val viewCache = HashMap<Int, LongPressHostView>()
 
     private var pendingId = -1
     private var pendingInfo: AppWidgetProviderInfo? = null
+
+    fun getOrCreateView(ctx: Context, appWidgetId: Int): LongPressHostView {
+        val cached = viewCache[appWidgetId]
+        if (cached != null) {
+            (cached.parent as? android.view.ViewGroup)?.removeView(cached)
+            return cached
+        }
+        val info = manager.getAppWidgetInfo(appWidgetId)
+        val created = (host.createView(ctx, appWidgetId, info) as LongPressHostView).apply {
+            clipToPadding = false
+        }
+        viewCache[appWidgetId] = created
+        return created
+    }
 
     private val bindLauncher =
         activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
@@ -143,7 +159,8 @@ class WidgetController(
 
     fun canReconfigure(appWidgetId: Int): Boolean {
         val info = manager.getAppWidgetInfo(appWidgetId) ?: return false
-        return info.configure != null
+        return info.configure != null &&
+            (info.widgetFeatures and AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE) != 0
     }
 
     fun reconfigure(appWidgetId: Int) {
@@ -157,8 +174,13 @@ class WidgetController(
 
     private fun configureOrFinish() {
         val info = pendingInfo ?: return
-        if (info.configure != null) {
-            host.startAppWidgetConfigureActivityForResult(activity, pendingId, 0, REQ_CONFIGURE, null)
+        val isOptional = (info.widgetFeatures and AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL) != 0
+        if (info.configure != null && !isOptional) {
+            runCatching {
+                host.startAppWidgetConfigureActivityForResult(activity, pendingId, 0, REQ_CONFIGURE, null)
+            }.onFailure {
+                finish()
+            }
         } else {
             finish()
         }
@@ -184,5 +206,10 @@ class WidgetController(
         pendingInfo = null
     }
 
-    fun delete(id: Int) = host.deleteAppWidgetId(id)
+    fun delete(id: Int) {
+        viewCache.remove(id)?.let { v ->
+            (v.parent as? android.view.ViewGroup)?.removeView(v)
+        }
+        host.deleteAppWidgetId(id)
+    }
 }

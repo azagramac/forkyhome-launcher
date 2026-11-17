@@ -34,12 +34,14 @@ class MainActivity : ComponentActivity() {
 
         widgets = WidgetController(this) { id, info ->
             val d = resources.displayMetrics.density
+            val sx = (if (info.targetCellWidth > 0) info.targetCellWidth else (((info.minWidth / d) + 30) / 70).toInt()).coerceIn(1, HOME_COLS)
+            val sy = (if (info.targetCellHeight > 0) info.targetCellHeight else (((info.minHeight / d) + 30) / 70).toInt()).coerceIn(1, HOME_ROWS)
             lifecycleScope.launch {
                 val ok = container.settings.addHomeItem(
                     kind = ItemKind.WIDGET,
                     data = id.toString(),
-                    sx = (((info.minWidth / d) + 30) / 70).toInt().coerceIn(1, HOME_COLS),
-                    sy = (((info.minHeight / d) + 30) / 70).toInt().coerceIn(1, HOME_ROWS),
+                    sx = sx,
+                    sy = sy,
                     page = container.currentPage,
                 )
                 if (!ok) {
