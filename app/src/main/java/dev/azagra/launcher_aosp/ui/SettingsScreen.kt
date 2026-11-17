@@ -1,11 +1,20 @@
 package dev.azagra.launcher_aosp.ui
 
+import android.Manifest
 import android.app.role.RoleManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,8 +41,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
@@ -80,6 +91,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import dev.azagra.launcher_aosp.R
 import dev.azagra.launcher_aosp.data.AppInfo
@@ -87,6 +99,7 @@ import dev.azagra.launcher_aosp.data.DrawerBg
 import dev.azagra.launcher_aosp.data.IconPacks
 import dev.azagra.launcher_aosp.data.IconShape
 import dev.azagra.launcher_aosp.data.LauncherSettings
+import dev.azagra.launcher_aosp.data.SmartspaceTimeFormat
 import dev.azagra.launcher_aosp.data.ThemeMode
 import dev.azagra.launcher_aosp.notif.NotificationCounter
 import dev.azagra.launcher_aosp.util.LockScreenService
@@ -95,6 +108,16 @@ import kotlin.math.roundToInt
 private val SectionCardShape = RoundedCornerShape(26.dp)
 private val OptionCardShape = RoundedCornerShape(18.dp)
 private val PillShape = RoundedCornerShape(50)
+
+private enum class SettingsRoute {
+    DASHBOARD,
+    GENERAL,
+    HOME_SCREEN,
+    AT_A_GLANCE,
+    APP_DRAWER,
+    GESTURES,
+    ABOUT,
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,21 +130,44 @@ fun SettingsScreen(
     onClose: () -> Unit,
 ) {
     val ctx = LocalContext.current
+    var route by remember { mutableStateOf(SettingsRoute.DASHBOARD) }
+    BackHandler(enabled = route != SettingsRoute.DASHBOARD) {
+        route = SettingsRoute.DASHBOARD
+    }
+
     val hasNotifService = remember {
         ctx.packageManager.resolveService(Intent(ctx, NotificationCounter::class.java), 0) != null
     }
     var notifEnabled by remember { mutableStateOf(notificationAccessGranted(ctx)) }
     var accessibilityEnabled by remember { mutableStateOf(LockScreenService.isEnabled(ctx)) }
+    var calendarPermGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
+        )
+    }
     LifecycleResumeEffect(Unit) {
         notifEnabled = notificationAccessGranted(ctx)
         accessibilityEnabled = LockScreenService.isEnabled(ctx)
+        calendarPermGranted =
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
         onPauseOrDispose { }
     }
+
+    val calendarPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        calendarPermGranted = granted
+        if (granted) {
+            onChange { it.copy(smartspaceShowCalendar = true) }
+        }
+    }
+
     var alpha by remember(s.drawerAlpha) { mutableFloatStateOf(s.drawerAlpha) }
     var homeIconScale by remember(s.homeIconScale) { mutableFloatStateOf(s.homeIconScale) }
     var drawerIconScale by remember(s.drawerIconScale) { mutableFloatStateOf(s.drawerIconScale) }
     var packDialog by remember { mutableStateOf(false) }
     var privacyDialog by remember { mutableStateOf(false) }
+
     val roleManager = remember { ctx.getSystemService(RoleManager::class.java) }
     val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
     val (versionName, versionCode) = remember {
@@ -131,6 +177,16 @@ fun SettingsScreen(
         }.getOrDefault("0.1.0" to 1L)
     }
 
+    val topTitle = when (route) {
+        SettingsRoute.DASHBOARD -> stringResource(R.string.settings_title)
+        SettingsRoute.GENERAL -> stringResource(R.string.cat_general)
+        SettingsRoute.HOME_SCREEN -> stringResource(R.string.section_home_screen)
+        SettingsRoute.AT_A_GLANCE -> stringResource(R.string.settings_at_a_glance)
+        SettingsRoute.APP_DRAWER -> stringResource(R.string.section_app_drawer)
+        SettingsRoute.GESTURES -> stringResource(R.string.cat_gestures)
+        SettingsRoute.ABOUT -> stringResource(R.string.cat_about)
+    }
+
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -138,13 +194,18 @@ fun SettingsScreen(
                 TopAppBar(
                     title = {
                         Text(
-                            stringResource(R.string.settings_title),
+                            topTitle,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = onClose) {
+                        IconButton(
+                            onClick = {
+                                if (route == SettingsRoute.DASHBOARD) onClose()
+                                else route = SettingsRoute.DASHBOARD
+                            },
+                        ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
                         }
                     },
@@ -156,483 +217,598 @@ fun SettingsScreen(
                 )
             },
         ) { pad ->
-            Column(
-                Modifier
-                    .padding(pad)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                if (!roleManager.isRoleHeld(RoleManager.ROLE_HOME)) {
-                    Surface(
-                        shape = SectionCardShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.Home,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(28.dp),
-                            )
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    stringResource(R.string.settings_set_default_launcher),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                )
-                            }
-                            Button(
-                                onClick = { roleLauncher.launch(roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)) },
-                            ) {
-                                Text(stringResource(R.string.action_save))
-                            }
-                        }
+            AnimatedContent(
+                targetState = route,
+                transitionSpec = {
+                    if (targetState != SettingsRoute.DASHBOARD) {
+                        (slideInHorizontally { it / 4 } + fadeIn()) togetherWith
+                            (slideOutHorizontally { -it / 6 } + fadeOut())
+                    } else {
+                        (slideInHorizontally { -it / 4 } + fadeIn()) togetherWith
+                            (slideOutHorizontally { it / 6 } + fadeOut())
                     }
-                }
-
-                SectionGroup(
-                    title = stringResource(R.string.section_appearance),
-                    icon = Icons.Default.Star,
+                },
+                label = "settingsRoute",
+                modifier = Modifier.padding(pad),
+            ) { currentRoute ->
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text(
-                        stringResource(R.string.section_appearance),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    OptionPillsRow(
-                        options = listOf(
-                            ThemeMode.SYSTEM to stringResource(R.string.theme_system),
-                            ThemeMode.LIGHT to stringResource(R.string.theme_light),
-                            ThemeMode.DARK to stringResource(R.string.theme_dark),
-                        ),
-                        selected = s.themeMode,
-                        onSelect = { v -> onChange { it.copy(themeMode = v) } },
-                    )
-
-                    CardDivider()
-
-                    SwitchRow(
-                        title = stringResource(R.string.settings_material_you),
-                        subtitle = stringResource(R.string.settings_material_you_desc),
-                        checked = s.dynamicColor,
-                        onChecked = { v -> onChange { it.copy(dynamicColor = v) } },
-                    )
-
-                    CardDivider()
-
-                    ActionRow(
-                        title = stringResource(R.string.settings_change_wallpaper),
-                        subtitle = stringResource(R.string.menu_wallpaper),
-                        icon = Icons.Default.Edit,
-                        onClick = { openWallpaperPicker(ctx) },
-                    )
-                }
-
-                SectionGroup(
-                    title = stringResource(R.string.section_icons),
-                    icon = Icons.Default.Star,
-                ) {
-                    val activePack = packs.firstOrNull { it.pkg == s.iconPack }
-                    val packLabel = activePack?.label ?: stringResource(R.string.icon_pack_default_system)
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(OptionCardShape)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                            .clickable { packDialog = true }
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (activePack?.icon != null) {
-                            Image(
-                                bitmap = activePack.icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(40.dp).clip(CircleShape),
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    Icons.Default.Star,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(20.dp),
-                                )
+                    when (currentRoute) {
+                        SettingsRoute.DASHBOARD -> {
+                            if (!roleManager.isRoleHeld(RoleManager.ROLE_HOME)) {
+                                Surface(
+                                    shape = SectionCardShape,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Home,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(28.dp),
+                                        )
+                                        Column(Modifier.weight(1f)) {
+                                            Text(
+                                                stringResource(R.string.settings_set_default_launcher),
+                                                style = MaterialTheme.typography.titleSmall,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            )
+                                        }
+                                        Button(
+                                            onClick = {
+                                                roleLauncher.launch(roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME))
+                                            },
+                                        ) {
+                                            Text(stringResource(R.string.action_save))
+                                        }
+                                    }
+                                }
                             }
-                        }
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.dialog_icon_pack_title),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = packLabel,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
 
-                    CardDivider()
-
-                    Text(
-                        text = stringResource(R.string.settings_icon_shape),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    IconShapeGrid(
-                        selected = s.iconShape,
-                        onSelect = { sh -> onChange { it.copy(iconShape = sh) } },
-                    )
-
-                    CardDivider()
-
-                    SwitchRow(
-                        title = stringResource(R.string.settings_themed_icons),
-                        subtitle = stringResource(R.string.settings_themed_icons_desc),
-                        checked = s.themedIcons,
-                        onChecked = { v -> onChange { it.copy(themedIcons = v) } },
-                    )
-
-                    if (hasNotifService) {
-                        CardDivider()
-                        SwitchRow(
-                            title = stringResource(R.string.settings_badge_numbers),
-                            subtitle = stringResource(R.string.settings_badge_numbers_desc),
-                            checked = s.badgeNumbers,
-                            onChecked = { v -> onChange { it.copy(badgeNumbers = v) } },
-                        )
-                        if (s.badgeNumbers && !notifEnabled) {
-                            FilledTonalButton(
-                                onClick = {
-                                    ctx.startActivity(
-                                        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = SectionCardShape,
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                tonalElevation = 2.dp,
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    DashboardCategoryRow(
+                                        icon = Icons.Default.Star,
+                                        title = stringResource(R.string.cat_general),
+                                        subtitle = stringResource(R.string.cat_general_desc),
+                                        onClick = { route = SettingsRoute.GENERAL },
                                     )
-                                },
+                                    CardDivider()
+                                    DashboardCategoryRow(
+                                        icon = Icons.Default.Home,
+                                        title = stringResource(R.string.section_home_screen),
+                                        subtitle = stringResource(R.string.cat_home_desc),
+                                        onClick = { route = SettingsRoute.HOME_SCREEN },
+                                    )
+                                    CardDivider()
+                                    DashboardCategoryRow(
+                                        icon = Icons.Default.DateRange,
+                                        title = stringResource(R.string.settings_at_a_glance),
+                                        subtitle = stringResource(R.string.settings_at_a_glance_desc),
+                                        onClick = { route = SettingsRoute.AT_A_GLANCE },
+                                    )
+                                    CardDivider()
+                                    DashboardCategoryRow(
+                                        icon = Icons.Default.Settings,
+                                        title = stringResource(R.string.section_app_drawer),
+                                        subtitle = stringResource(R.string.cat_drawer_desc),
+                                        onClick = { route = SettingsRoute.APP_DRAWER },
+                                    )
+                                    CardDivider()
+                                    DashboardCategoryRow(
+                                        icon = Icons.Default.Notifications,
+                                        title = stringResource(R.string.cat_gestures),
+                                        subtitle = stringResource(R.string.cat_gestures_desc),
+                                        onClick = { route = SettingsRoute.GESTURES },
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = SectionCardShape,
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                tonalElevation = 2.dp,
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    DashboardCategoryRow(
+                                        icon = Icons.Default.Lock,
+                                        title = stringResource(R.string.cat_privacy),
+                                        subtitle = stringResource(
+                                            R.string.settings_hidden_protected_desc,
+                                            s.hiddenApps.size,
+                                            s.protectedApps.size,
+                                        ),
+                                        onClick = {
+                                            if (onAuthenticate != null) {
+                                                onAuthenticate { privacyDialog = true }
+                                            } else {
+                                                privacyDialog = true
+                                            }
+                                        },
+                                    )
+                                    CardDivider()
+                                    DashboardCategoryRow(
+                                        icon = Icons.Default.Info,
+                                        title = stringResource(R.string.cat_about),
+                                        subtitle = stringResource(R.string.footer_version_build, versionName, versionCode),
+                                        onClick = { route = SettingsRoute.ABOUT },
+                                    )
+                                }
+                            }
+                        }
+
+                        SettingsRoute.GENERAL -> {
+                            SectionGroup(
+                                title = stringResource(R.string.section_appearance),
+                                icon = Icons.Default.Star,
+                            ) {
+                                OptionPillsRow(
+                                    options = listOf(
+                                        ThemeMode.SYSTEM to stringResource(R.string.theme_system),
+                                        ThemeMode.LIGHT to stringResource(R.string.theme_light),
+                                        ThemeMode.DARK to stringResource(R.string.theme_dark),
+                                    ),
+                                    selected = s.themeMode,
+                                    onSelect = { m -> onChange { it.copy(themeMode = m) } },
+                                )
+                                CardDivider()
+                                SwitchRow(
+                                    title = stringResource(R.string.settings_material_you),
+                                    subtitle = stringResource(R.string.settings_material_you_desc),
+                                    checked = s.dynamicColor,
+                                    onChecked = { v -> onChange { it.copy(dynamicColor = v) } },
+                                )
+                                CardDivider()
+                                ActionRow(
+                                    title = stringResource(R.string.settings_change_wallpaper),
+                                    subtitle = null,
+                                    icon = Icons.Default.Edit,
+                                    onClick = { openWallpaperPicker(ctx) },
+                                )
+                            }
+
+                            SectionGroup(
+                                title = stringResource(R.string.section_icons),
+                                icon = Icons.Default.Star,
+                            ) {
+                                val packName = packs.firstOrNull { it.pkg == s.iconPack }?.label
+                                    ?: stringResource(R.string.icon_pack_default)
+                                ActionRow(
+                                    title = stringResource(R.string.dialog_icon_pack_title),
+                                    subtitle = packName,
+                                    icon = Icons.Default.Star,
+                                    onClick = { packDialog = true },
+                                )
+                                CardDivider()
+                                Text(
+                                    text = stringResource(R.string.settings_icon_shape),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                IconShapeGrid(
+                                    selected = s.iconShape,
+                                    onSelect = { sh -> onChange { it.copy(iconShape = sh) } },
+                                )
+                                CardDivider()
+                                SwitchRow(
+                                    title = stringResource(R.string.settings_themed_icons),
+                                    subtitle = stringResource(R.string.settings_themed_icons_desc),
+                                    checked = s.themedIcons,
+                                    onChecked = { v -> onChange { it.copy(themedIcons = v) } },
+                                )
+                                if (hasNotifService) {
+                                    CardDivider()
+                                    SwitchRow(
+                                        title = stringResource(R.string.settings_badge_numbers),
+                                        subtitle = stringResource(R.string.settings_badge_numbers_desc),
+                                        checked = s.badgeNumbers,
+                                        onChecked = { v -> onChange { it.copy(badgeNumbers = v) } },
+                                    )
+                                    if (!notifEnabled) {
+                                        FilledTonalButton(
+                                            onClick = {
+                                                ctx.startActivity(
+                                                    Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                )
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                        ) {
+                                            Icon(Icons.Default.Notifications, null, Modifier.size(18.dp))
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(stringResource(R.string.settings_grant_notification_access))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingsRoute.HOME_SCREEN -> {
+                            SectionGroup(
+                                title = stringResource(R.string.section_home_screen),
+                                icon = Icons.Default.Home,
+                            ) {
+                                StepperRow(
+                                    title = stringResource(R.string.settings_home_columns),
+                                    value = s.homeCols,
+                                    range = 4..6,
+                                    onValueChange = { c -> onChange { it.copy(homeCols = c) } },
+                                )
+                                CardDivider()
+                                StepperRow(
+                                    title = stringResource(R.string.settings_home_rows),
+                                    value = s.homeRows,
+                                    range = 4..7,
+                                    onValueChange = { r -> onChange { it.copy(homeRows = r) } },
+                                )
+                                CardDivider()
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(
+                                            stringResource(R.string.settings_home_icon_size),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                        )
+                                        Text(
+                                            "${(homeIconScale * 100).roundToInt()}%",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                    Slider(
+                                        value = homeIconScale,
+                                        onValueChange = { homeIconScale = it },
+                                        onValueChangeFinished = { onChange { it.copy(homeIconScale = homeIconScale) } },
+                                        valueRange = 0.80f..1.20f,
+                                    )
+                                }
+                                CardDivider()
+                                SwitchRow(
+                                    title = stringResource(R.string.settings_show_home_labels),
+                                    subtitle = null,
+                                    checked = s.showHomeLabels,
+                                    onChecked = { v -> onChange { it.copy(showHomeLabels = v) } },
+                                )
+                                CardDivider()
+                                SwitchRow(
+                                    title = stringResource(R.string.settings_lock_desktop),
+                                    subtitle = stringResource(R.string.settings_lock_desktop_desc),
+                                    checked = s.lockDesktop,
+                                    onChecked = { v -> onChange { it.copy(lockDesktop = v) } },
+                                )
+                                CardDivider()
+                                SwitchRow(
+                                    title = stringResource(R.string.settings_auto_add_apps),
+                                    subtitle = null,
+                                    checked = s.autoAddNewApps,
+                                    onChecked = { v -> onChange { it.copy(autoAddNewApps = v) } },
+                                )
+                            }
+                        }
+
+                        SettingsRoute.AT_A_GLANCE -> {
+                            Surface(
+                                shape = SectionCardShape,
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.settings_grant_notification_access))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onChange { it.copy(showAtAGlance = !s.showAtAGlance) } }
+                                        .padding(horizontal = 18.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.settings_at_a_glance_toggle),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Switch(
+                                        checked = s.showAtAGlance,
+                                        onCheckedChange = { v -> onChange { it.copy(showAtAGlance = v) } },
+                                    )
+                                }
+                            }
+
+                            if (s.showAtAGlance) {
+                                SectionGroup(
+                                    title = stringResource(R.string.settings_smartspace_preview),
+                                    icon = Icons.Default.DateRange,
+                                ) {
+                                    Surface(
+                                        shape = OptionCardShape,
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        AtAGlanceHeader(s = s, previewMode = true)
+                                    }
+                                }
+
+                                SectionGroup(
+                                    title = stringResource(R.string.settings_smartspace_permissions),
+                                    icon = Icons.Default.Lock,
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(
+                                                text = stringResource(
+                                                    if (calendarPermGranted) R.string.settings_calendar_permission_granted
+                                                    else R.string.settings_smartspace_calendar
+                                                ),
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                            )
+                                            Text(
+                                                text = stringResource(R.string.settings_smartspace_calendar_desc),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        if (calendarPermGranted) {
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                            )
+                                        } else {
+                                            FilledTonalButton(
+                                                onClick = { calendarPermLauncher.launch(Manifest.permission.READ_CALENDAR) },
+                                            ) {
+                                                Text(stringResource(R.string.settings_grant_calendar_permission))
+                                            }
+                                        }
+                                    }
+                                }
+
+                                SectionGroup(
+                                    title = stringResource(R.string.settings_smartspace_what_to_show),
+                                    icon = Icons.Default.Star,
+                                ) {
+                                    SwitchRow(
+                                        title = stringResource(R.string.settings_smartspace_calendar),
+                                        subtitle = stringResource(R.string.settings_smartspace_calendar_desc),
+                                        checked = s.smartspaceShowCalendar && calendarPermGranted,
+                                        onChecked = { v ->
+                                            if (v && !calendarPermGranted) {
+                                                calendarPermLauncher.launch(Manifest.permission.READ_CALENDAR)
+                                            } else {
+                                                onChange { it.copy(smartspaceShowCalendar = v) }
+                                            }
+                                        },
+                                    )
+                                    CardDivider()
+                                    SwitchRow(
+                                        title = stringResource(R.string.settings_smartspace_alarm),
+                                        subtitle = null,
+                                        checked = s.smartspaceShowAlarm,
+                                        onChecked = { v -> onChange { it.copy(smartspaceShowAlarm = v) } },
+                                    )
+                                    CardDivider()
+                                    SwitchRow(
+                                        title = stringResource(R.string.settings_smartspace_battery),
+                                        subtitle = null,
+                                        checked = s.smartspaceShowBattery,
+                                        onChecked = { v -> onChange { it.copy(smartspaceShowBattery = v) } },
+                                    )
+                                }
+
+                                SectionGroup(
+                                    title = stringResource(R.string.settings_smartspace_date_time),
+                                    icon = Icons.Default.DateRange,
+                                ) {
+                                    val canToggleDate = !s.smartspaceShowDate || s.smartspaceShowTime
+                                    val canToggleTime = !s.smartspaceShowTime || s.smartspaceShowDate
+                                    SwitchRow(
+                                        title = stringResource(R.string.settings_smartspace_show_date),
+                                        subtitle = null,
+                                        checked = s.smartspaceShowDate,
+                                        onChecked = { v ->
+                                            if (canToggleDate) onChange { it.copy(smartspaceShowDate = v) }
+                                        },
+                                    )
+                                    CardDivider()
+                                    SwitchRow(
+                                        title = stringResource(R.string.settings_smartspace_show_time),
+                                        subtitle = null,
+                                        checked = s.smartspaceShowTime,
+                                        onChecked = { v ->
+                                            if (canToggleTime) onChange { it.copy(smartspaceShowTime = v) }
+                                        },
+                                    )
+                                    CardDivider()
+                                    Text(
+                                        text = stringResource(R.string.settings_smartspace_time_format),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    OptionPillsRow(
+                                        options = listOf(
+                                            SmartspaceTimeFormat.SYSTEM to stringResource(R.string.time_format_system),
+                                            SmartspaceTimeFormat.TWELVE_HOUR to stringResource(R.string.time_format_12h),
+                                            SmartspaceTimeFormat.TWENTY_FOUR_HOUR to stringResource(R.string.time_format_24h),
+                                        ),
+                                        selected = s.smartspaceTimeFormat,
+                                        onSelect = { fmt -> onChange { it.copy(smartspaceTimeFormat = fmt) } },
+                                    )
+                                }
+                            }
+                        }
+
+                        SettingsRoute.APP_DRAWER -> {
+                            SectionGroup(
+                                title = stringResource(R.string.section_app_drawer),
+                                icon = Icons.Default.Settings,
+                            ) {
+                                StepperRow(
+                                    title = stringResource(R.string.settings_columns),
+                                    value = s.columns,
+                                    range = 4..6,
+                                    onValueChange = { c -> onChange { it.copy(columns = c) } },
+                                )
+                                CardDivider()
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(
+                                            stringResource(R.string.settings_drawer_icon_size),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                        )
+                                        Text(
+                                            "${(drawerIconScale * 100).roundToInt()}%",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                    Slider(
+                                        value = drawerIconScale,
+                                        onValueChange = { drawerIconScale = it },
+                                        onValueChangeFinished = { onChange { it.copy(drawerIconScale = drawerIconScale) } },
+                                        valueRange = 0.80f..1.20f,
+                                    )
+                                }
+                                CardDivider()
+                                SwitchRow(
+                                    title = stringResource(R.string.settings_show_labels),
+                                    subtitle = null,
+                                    checked = s.showLabels,
+                                    onChecked = { v -> onChange { it.copy(showLabels = v) } },
+                                )
+                                CardDivider()
+                                DrawerBgGrid(
+                                    selected = s.drawerBg,
+                                    onSelect = { b -> onChange { it.copy(drawerBg = b) } },
+                                )
+                                CardDivider()
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(
+                                            stringResource(R.string.settings_bg_opacity),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                        )
+                                        Text(
+                                            "${(alpha * 100).roundToInt()}%",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                    Slider(
+                                        value = alpha,
+                                        onValueChange = { alpha = it },
+                                        onValueChangeFinished = { onChange { it.copy(drawerAlpha = alpha) } },
+                                        valueRange = 0.50f..1f,
+                                    )
+                                }
+                            }
+                        }
+
+                        SettingsRoute.GESTURES -> {
+                            SectionGroup(
+                                title = stringResource(R.string.cat_gestures),
+                                icon = Icons.Default.Notifications,
+                            ) {
+                                SwitchRow(
+                                    title = stringResource(R.string.settings_swipe_down_notif),
+                                    subtitle = stringResource(R.string.settings_swipe_down_notif_desc),
+                                    checked = s.swipeDownNotifications,
+                                    onChecked = { v -> onChange { it.copy(swipeDownNotifications = v) } },
+                                )
+                                CardDivider()
+                                SwitchRow(
+                                    title = stringResource(R.string.settings_double_tap_sleep),
+                                    subtitle = stringResource(R.string.settings_double_tap_sleep_desc),
+                                    checked = s.doubleTapToSleep,
+                                    onChecked = { v -> onChange { it.copy(doubleTapToSleep = v) } },
+                                )
+                                if (s.doubleTapToSleep && !accessibilityEnabled) {
+                                    FilledTonalButton(
+                                        onClick = {
+                                            runCatching {
+                                                ctx.startActivity(
+                                                    Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                )
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Icon(Icons.Default.Lock, null, Modifier.size(18.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stringResource(R.string.settings_grant_accessibility_access))
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingsRoute.ABOUT -> {
+                            val repoUrl = stringResource(R.string.footer_repo_url)
+                            Surface(
+                                shape = SectionCardShape,
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 24.dp, horizontal = 16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.app_name),
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.footer_version_build, versionName, versionCode),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    FilledTonalButton(
+                                        onClick = {
+                                            runCatching {
+                                                ctx.startActivity(
+                                                    Intent(Intent.ACTION_VIEW, Uri.parse(repoUrl))
+                                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                )
+                                            }
+                                        },
+                                    ) {
+                                        Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stringResource(R.string.footer_open_source))
+                                    }
+                                    Text(
+                                        text = repoUrl.removePrefix("https://"),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                    )
+                                }
                             }
                         }
                     }
-                }
-
-                SectionGroup(
-                    title = stringResource(R.string.section_home_screen),
-                    icon = Icons.Default.Home,
-                ) {
-                    SwitchRow(
-                        title = stringResource(R.string.settings_at_a_glance),
-                        subtitle = stringResource(R.string.settings_at_a_glance_desc),
-                        checked = s.showAtAGlance,
-                        onChecked = { v -> onChange { it.copy(showAtAGlance = v) } },
-                    )
-                    CardDivider()
-                    StepperRow(
-                        title = stringResource(R.string.settings_home_columns),
-                        value = s.homeCols,
-                        range = 4..6,
-                        onValueChange = { v -> onChange { it.copy(homeCols = v) } },
-                    )
-                    CardDivider()
-                    StepperRow(
-                        title = stringResource(R.string.settings_home_rows),
-                        value = s.homeRows,
-                        range = 4..7,
-                        onValueChange = { v -> onChange { it.copy(homeRows = v) } },
-                    )
-                    CardDivider()
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                stringResource(R.string.settings_home_icon_size),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                "${(homeIconScale * 100).roundToInt()}%",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
-                        Slider(
-                            value = homeIconScale,
-                            onValueChange = { homeIconScale = (it * 20).roundToInt() / 20f },
-                            onValueChangeFinished = { onChange { it.copy(homeIconScale = homeIconScale) } },
-                            valueRange = 0.80f..1.20f,
-                            steps = 7,
-                        )
-                    }
-                    CardDivider()
-                    SwitchRow(
-                        title = stringResource(R.string.settings_show_home_labels),
-                        subtitle = null,
-                        checked = s.showHomeLabels,
-                        onChecked = { v -> onChange { it.copy(showHomeLabels = v) } },
-                    )
-                    CardDivider()
-                    SwitchRow(
-                        title = stringResource(R.string.settings_lock_desktop),
-                        subtitle = stringResource(R.string.settings_lock_desktop_desc),
-                        checked = s.lockDesktop,
-                        onChecked = { v -> onChange { it.copy(lockDesktop = v) } },
-                    )
-                    CardDivider()
-                    SwitchRow(
-                        title = stringResource(R.string.settings_auto_add_apps),
-                        subtitle = null,
-                        checked = s.autoAddNewApps,
-                        onChecked = { v -> onChange { it.copy(autoAddNewApps = v) } },
-                    )
-                    CardDivider()
-                    SwitchRow(
-                        title = stringResource(R.string.settings_swipe_down_notif),
-                        subtitle = stringResource(R.string.settings_swipe_down_notif_desc),
-                        checked = s.swipeDownNotifications,
-                        onChecked = { v -> onChange { it.copy(swipeDownNotifications = v) } },
-                    )
-                    CardDivider()
-                    SwitchRow(
-                        title = stringResource(R.string.settings_double_tap_sleep),
-                        subtitle = stringResource(R.string.settings_double_tap_sleep_desc),
-                        checked = s.doubleTapToSleep,
-                        onChecked = { v -> onChange { it.copy(doubleTapToSleep = v) } },
-                    )
-                    if (s.doubleTapToSleep && !accessibilityEnabled) {
-                        FilledTonalButton(
-                            onClick = {
-                                runCatching {
-                                    ctx.startActivity(
-                                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    )
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.settings_grant_accessibility_access))
-                        }
-                    }
-                }
-
-                SectionGroup(
-                    title = stringResource(R.string.section_app_drawer),
-                    icon = Icons.Default.Settings,
-                ) {
-                    Text(
-                        text = stringResource(R.string.section_app_drawer),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    DrawerBgGrid(
-                        selected = s.drawerBg,
-                        onSelect = { bg -> onChange { it.copy(drawerBg = bg) } },
-                    )
-
-                    CardDivider()
-
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                stringResource(R.string.settings_bg_opacity),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                "${(alpha * 100).roundToInt()}%",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
-                        Slider(
-                            value = alpha,
-                            onValueChange = { alpha = it },
-                            onValueChangeFinished = { onChange { it.copy(drawerAlpha = alpha) } },
-                            valueRange = 0.5f..1f,
-                        )
-                    }
-
-                    CardDivider()
-
-                    StepperRow(
-                        title = stringResource(R.string.settings_columns),
-                        value = s.columns,
-                        range = 4..6,
-                        onValueChange = { v -> onChange { it.copy(columns = v) } },
-                    )
-
-                    CardDivider()
-
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                stringResource(R.string.settings_drawer_icon_size),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                "${(drawerIconScale * 100).roundToInt()}%",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
-                        Slider(
-                            value = drawerIconScale,
-                            onValueChange = { drawerIconScale = (it * 20).roundToInt() / 20f },
-                            onValueChangeFinished = { onChange { it.copy(drawerIconScale = drawerIconScale) } },
-                            valueRange = 0.80f..1.20f,
-                            steps = 7,
-                        )
-                    }
-
-                    CardDivider()
-
-                    SwitchRow(
-                        title = stringResource(R.string.settings_show_labels),
-                        subtitle = null,
-                        checked = s.showLabels,
-                        onChecked = { v -> onChange { it.copy(showLabels = v) } },
-                    )
-                }
-
-                SectionGroup(
-                    title = stringResource(R.string.section_privacy),
-                    icon = Icons.Default.Lock,
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(OptionCardShape)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                            .clickable {
-                                if (onAuthenticate != null) {
-                                    onAuthenticate { privacyDialog = true }
-                                } else {
-                                    privacyDialog = true
-                                }
-                            }
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.secondaryContainer),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Default.Lock,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                stringResource(R.string.settings_hidden_protected_apps),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                stringResource(R.string.settings_hidden_protected_desc, s.hiddenApps.size, s.protectedApps.size),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-
-                val repoUrl = stringResource(R.string.footer_repo_url)
-                Surface(
-                    shape = SectionCardShape,
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 18.dp, horizontal = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = stringResource(R.string.footer_version_build, versionName, versionCode),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        FilledTonalButton(
-                            onClick = {
-                                runCatching {
-                                    ctx.startActivity(
-                                        Intent(Intent.ACTION_VIEW, Uri.parse(repoUrl))
-                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    )
-                                }
-                            },
-                        ) {
-                            Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.footer_open_source))
-                        }
-                        Text(
-                            text = repoUrl.removePrefix("https://"),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                        )
-                    }
+                    Spacer(Modifier.height(16.dp))
                 }
             }
         }
@@ -770,21 +946,20 @@ fun SettingsScreen(
                         singleLine = true,
                         placeholder = { Text(stringResource(R.string.search_apps)) },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        shape = PillShape,
+                        shape = OptionCardShape,
                         modifier = Modifier.fillMaxWidth(),
                     )
 
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 240.dp, max = 360.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         items(uniqueApps, key = { it.pkg }) { app ->
                             val isChecked = if (selectedTab == 0) app.pkg in s.hiddenApps else app.pkg in s.protectedApps
                             Surface(
                                 shape = OptionCardShape,
-                                color = if (isChecked) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                                color = if (isChecked) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                                 else MaterialTheme.colorScheme.surfaceContainer,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -832,6 +1007,59 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton({ privacyDialog = false }) { Text(stringResource(R.string.action_close)) }
             },
+        )
+    }
+}
+
+@Composable
+private fun DashboardCategoryRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(OptionCardShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

@@ -388,23 +388,27 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             action()
             return
         }
-        val prompt = BiometricPrompt.Builder(ctx)
-            .setTitle(ctx.getString(R.string.auth_protected_app_title))
-            .setSubtitle(ctx.getString(R.string.auth_protected_app_desc))
-            .setAllowedAuthenticators(
-                BiometricManager.Authenticators.BIOMETRIC_WEAK or
-                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        runCatching {
+            val prompt = BiometricPrompt.Builder(ctx)
+                .setTitle(ctx.getString(R.string.auth_protected_app_title))
+                .setSubtitle(ctx.getString(R.string.auth_protected_app_desc))
+                .setAllowedAuthenticators(
+                    BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                )
+                .build()
+            prompt.authenticate(
+                CancellationSignal(),
+                mainExecutor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
+                        action()
+                    }
+                },
             )
-            .build()
-        prompt.authenticate(
-            CancellationSignal(),
-            mainExecutor,
-            object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
-                    action()
-                }
-            },
-        )
+        }.onFailure {
+            toast(ctx.getString(R.string.auth_protected_app_title))
+        }
     }
 
     val homeCols = s.homeCols.coerceIn(4, 6)
@@ -1517,7 +1521,7 @@ private fun HomePage(
 
     Column(Modifier.fillMaxSize()) {
         if (page == 0 && s.showAtAGlance) {
-            AtAGlanceHeader()
+            AtAGlanceHeader(s = s)
         }
 
         BoxWithConstraints(

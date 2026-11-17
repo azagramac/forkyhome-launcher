@@ -86,7 +86,34 @@
     <string name="settings_grant_accessibility_access">Enable accessibility service</string>
     <string name="toast_enable_accessibility_lock">Enable AOSP Launcher in Accessibility settings to lock the screen</string>
     <string name="settings_at_a_glance">At a Glance</string>
-    <string name="settings_at_a_glance_desc">Show date, next alarm, and battery status at the top of the main home screen</string>
+    <string name="settings_at_a_glance_desc">Show date, time, calendar events, alarms, and battery status</string>
+    <string name="settings_at_a_glance_toggle">Enable At a Glance</string>
+    <string name="settings_smartspace_preview">Preview</string>
+    <string name="settings_smartspace_what_to_show">What to show</string>
+    <string name="settings_smartspace_date_time">Date &amp; Time</string>
+    <string name="settings_smartspace_show_date">Show date</string>
+    <string name="settings_smartspace_show_time">Show time</string>
+    <string name="settings_smartspace_time_format">Time format</string>
+    <string name="time_format_system">System</string>
+    <string name="time_format_12h">12-hour</string>
+    <string name="time_format_24h">24-hour</string>
+    <string name="settings_smartspace_calendar">Calendar events</string>
+    <string name="settings_smartspace_calendar_desc">Show upcoming events from your calendar</string>
+    <string name="settings_smartspace_alarm">Next alarm</string>
+    <string name="settings_smartspace_battery">Battery status</string>
+    <string name="settings_smartspace_permissions">Permissions</string>
+    <string name="settings_grant_calendar_permission">Grant calendar permission</string>
+    <string name="settings_calendar_permission_granted">Calendar permission granted</string>
+
+    <string name="cat_general">General</string>
+    <string name="cat_general_desc">Theme, wallpaper, icon pack, and badges</string>
+    <string name="cat_home_desc">Grid size, icons, labels, and desktop lock</string>
+    <string name="cat_drawer_desc">Columns, icon size, background, and opacity</string>
+    <string name="cat_gestures">Gestures</string>
+    <string name="cat_gestures_desc">Swipe for notifications and double-tap to sleep</string>
+    <string name="cat_privacy">Privacy</string>
+    <string name="cat_privacy_desc">Hidden and biometrically protected apps</string>
+    <string name="cat_about">About</string>
     <string name="new_page_drop_hint">Drop here to create a new page</string>
     <string name="settings_set_default_launcher">Set as default launcher</string>
 

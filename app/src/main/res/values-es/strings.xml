@@ -85,8 +85,35 @@
     <string name="settings_double_tap_sleep_desc">Toca dos veces en un hueco vacío del escritorio para bloquear la pantalla</string>
     <string name="settings_grant_accessibility_access">Activar servicio de accesibilidad</string>
     <string name="toast_enable_accessibility_lock">Activa AOSP Launcher en Accesibilidad para poder bloquear la pantalla</string>
-    <string name="settings_at_a_glance">De un vistazo (At a Glance)</string>
-    <string name="settings_at_a_glance_desc">Muestra fecha, próxima alarma y batería en la parte superior de la página principal</string>
+    <string name="settings_at_a_glance">De un vistazo</string>
+    <string name="settings_at_a_glance_desc">Muestra fecha, hora, eventos de calendario, alarmas y batería</string>
+    <string name="settings_at_a_glance_toggle">Activar De un vistazo</string>
+    <string name="settings_smartspace_preview">Vista previa</string>
+    <string name="settings_smartspace_what_to_show">Qué mostrar</string>
+    <string name="settings_smartspace_date_time">Fecha y hora</string>
+    <string name="settings_smartspace_show_date">Mostrar fecha</string>
+    <string name="settings_smartspace_show_time">Mostrar hora</string>
+    <string name="settings_smartspace_time_format">Formato de hora</string>
+    <string name="time_format_system">Sistema</string>
+    <string name="time_format_12h">12 horas</string>
+    <string name="time_format_24h">24 horas</string>
+    <string name="settings_smartspace_calendar">Eventos del calendario</string>
+    <string name="settings_smartspace_calendar_desc">Muestra los próximos eventos de tu calendario</string>
+    <string name="settings_smartspace_alarm">Próxima alarma</string>
+    <string name="settings_smartspace_battery">Estado de la batería</string>
+    <string name="settings_smartspace_permissions">Permisos</string>
+    <string name="settings_grant_calendar_permission">Conceder permiso de calendario</string>
+    <string name="settings_calendar_permission_granted">Permiso de calendario concedido</string>
+
+    <string name="cat_general">General</string>
+    <string name="cat_general_desc">Tema, fondo de pantalla, pack de iconos y globos</string>
+    <string name="cat_home_desc">Cuadrícula, iconos, nombres y bloqueo</string>
+    <string name="cat_drawer_desc">Columnas, tamaño de iconos, fondo y opacidad</string>
+    <string name="cat_gestures">Gestos</string>
+    <string name="cat_gestures_desc">Deslizar para notificaciones y doble toque para apagar</string>
+    <string name="cat_privacy">Privacidad</string>
+    <string name="cat_privacy_desc">Aplicaciones ocultas y protegidas con biometría</string>
+    <string name="cat_about">Acerca de</string>
     <string name="new_page_drop_hint">Suelta aquí para crear una nueva página</string>
     <string name="settings_set_default_launcher">Establecer como launcher predeterminado</string>
 

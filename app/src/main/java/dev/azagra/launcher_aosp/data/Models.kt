@@ -13,6 +13,7 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 enum class DrawerBg { SYSTEM, WHITE, BLACK, DARK }
 enum class IconShape { DEFAULT, CIRCLE, SQUIRCLE, ROUNDED, TEARDROP }
 enum class ItemKind { APP, WIDGET, FOLDER }
+enum class SmartspaceTimeFormat { SYSTEM, TWELVE_HOUR, TWENTY_FOUR_HOUR }
 
 @Immutable
 class AppInfo(
@@ -130,6 +131,12 @@ data class LauncherSettings(
     val swipeDownNotifications: Boolean = true,
     val doubleTapToSleep: Boolean = false,
     val showAtAGlance: Boolean = true,
+    val smartspaceShowDate: Boolean = true,
+    val smartspaceShowTime: Boolean = false,
+    val smartspaceTimeFormat: SmartspaceTimeFormat = SmartspaceTimeFormat.SYSTEM,
+    val smartspaceShowCalendar: Boolean = true,
+    val smartspaceShowAlarm: Boolean = true,
+    val smartspaceShowBattery: Boolean = true,
     val hiddenApps: Set<String> = emptySet(),
     val protectedApps: Set<String> = emptySet(),
     val dock: List<String> = emptyList(),
