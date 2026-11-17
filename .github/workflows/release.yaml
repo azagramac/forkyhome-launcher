@@ -89,7 +89,8 @@ jobs:
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/release/*.apk dist/
-          cp app/build/outputs/bundle/release/*.aab dist/
+          AAB_SRC=$(ls app/build/outputs/bundle/release/*.aab | head -n 1)
+          cp "$AAB_SRC" "dist/dev.azagra.forkyhome-${VERSION}.aab"
           cd dist
           for f in *.apk *.aab; do
             sha256sum "$f" > "$f.sha256"

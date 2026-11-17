@@ -77,7 +77,10 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ env.KEY_ALIAS || secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: gradle assembleDebug -PversionCode="${{ github.run_number }}" --stacktrace
+        run: |
+          VERSION="0.1.0"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          gradle assembleDebug -PversionName="$VERSION" -PversionCode="${{ github.run_number }}" --stacktrace
 
       - name: 📦 Prepare Debug Artifacts & SHA-256 Checksums
         run: |
@@ -171,7 +174,7 @@ jobs:
         with:
           tag_name: testing
           target_commitish: ${{ github.sha }}
-          name: ForkyHome Testing
+          name: ForkyHome v${{ env.VERSION }} (Build #${{ github.run_number }})
           body_path: release_notes.md
           prerelease: true
           make_latest: false
