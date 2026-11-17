@@ -126,7 +126,7 @@
     <string name="about_display">Display</string>
     <string name="about_source_code">Source code</string>
     <string name="about_privacy_policy">Privacy policy</string>
-    <string name="footer_privacy_url" translatable="false">https://github.com/azagramac/aosp-launcher/blob/main/PRIVACY.md</string>
+    <string name="footer_privacy_url" translatable="false">https://github.com/azagramac/forkyhome-launcher/blob/master/PRIVACY.md</string>
     <string name="new_page_drop_hint">Drop here to create a new page</string>
     <string name="settings_set_default_launcher">Set as default launcher</string>
 
@@ -141,5 +141,5 @@
 
     <string name="footer_version_build">Version %1$s (Build %2$d)</string>
     <string name="footer_open_source">Open Source on GitHub</string>
-    <string name="footer_repo_url" translatable="false">https://github.com/azagramac/aosp-launcher</string>
+    <string name="footer_repo_url" translatable="false">https://github.com/azagramac/forkyhome-launcher</string>
 </resources>

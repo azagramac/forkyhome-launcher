@@ -10,7 +10,7 @@ This Privacy Policy describes how **ForkyHome** (`dev.azagra.forkyhome`), develo
 
 * **Application:** ForkyHome (`dev.azagra.forkyhome`)
 * **Developer:** azagramac
-* **Repository & Support:** [https://github.com/azagramac/aosp-launcher](https://github.com/azagramac/aosp-launcher)
+* **Repository & Support:** [https://github.com/azagramac/forkyhome-launcher](https://github.com/azagramac/forkyhome-launcher)
 * **Privacy Contact:** Open an issue or contact the maintainer via the official GitHub repository above *(or add your direct support email before publishing to Google Play)*.
 
 ---
