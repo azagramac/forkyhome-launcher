@@ -85,6 +85,17 @@
             </intent-filter>
         </activity>
 
+        <activity-alias
+            android:name=".LauncherEntryAlias"
+            android:enabled="true"
+            android:exported="true"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
         <!--
             NOTA: Google Play Protect (Protección contra fraudes mejorada en Android 15+)
             bloquea automáticamente cualquier APK instalado fuera de Google Play Store
