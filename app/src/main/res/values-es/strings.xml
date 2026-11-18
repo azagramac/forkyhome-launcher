@@ -10,6 +10,11 @@
     <string name="action_remove_from_home">Quitar del escritorio</string>
     <string name="action_remove_from_dock">Quitar del dock</string>
     <string name="action_hide_app">Ocultar aplicación</string>
+    <string name="action_edit_icon">Cambiar icono</string>
+    <string name="dialog_edit_icon_title">Elegir icono para %1$s</string>
+    <string name="edit_icon_default">Predeterminado (automático)</string>
+    <string name="edit_icon_system">Icono del sistema</string>
+    <string name="edit_icon_search">Buscar iconos</string>
     <string name="action_protect_app">Proteger aplicación</string>
     <string name="action_unprotect_app">Quitar protección</string>
     <string name="toast_added_to_home">Añadido al escritorio</string>

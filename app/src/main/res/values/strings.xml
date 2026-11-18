@@ -10,6 +10,11 @@
     <string name="action_remove_from_home">Remove from home screen</string>
     <string name="action_remove_from_dock">Remove from dock</string>
     <string name="action_hide_app">Hide app</string>
+    <string name="action_edit_icon">Edit icon</string>
+    <string name="dialog_edit_icon_title">Choose icon for %1$s</string>
+    <string name="edit_icon_default">Default (automatic)</string>
+    <string name="edit_icon_system">System icon</string>
+    <string name="edit_icon_search">Search icons</string>
     <string name="action_protect_app">Protect app</string>
     <string name="action_unprotect_app">Remove protection</string>
     <string name="toast_added_to_home">Added to home screen</string>

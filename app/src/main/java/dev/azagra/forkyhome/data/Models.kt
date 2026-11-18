@@ -54,6 +54,7 @@ data class IconConfig(
     val themed: Boolean = false,
     val dark: Boolean = false,
     val shape: IconShape = IconShape.DEFAULT,
+    val customIcons: Map<String, String> = emptyMap(),
 )
 
 @Immutable
@@ -137,6 +138,7 @@ data class LauncherSettings(
     val smartspaceShowCalendar: Boolean = true,
     val smartspaceShowAlarm: Boolean = true,
     val smartspaceShowBattery: Boolean = true,
+    val customIcons: Map<String, String> = emptyMap(),
     val hiddenApps: Set<String> = emptySet(),
     val protectedApps: Set<String> = emptySet(),
     val dock: List<String> = emptyList(),

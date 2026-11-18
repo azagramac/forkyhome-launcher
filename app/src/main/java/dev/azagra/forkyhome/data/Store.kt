@@ -43,6 +43,7 @@ private object K {
     val smartspaceShowCalendar = booleanPreferencesKey("smartspace_show_calendar")
     val smartspaceShowAlarm = booleanPreferencesKey("smartspace_show_alarm")
     val smartspaceShowBattery = booleanPreferencesKey("smartspace_show_battery")
+    val customIcons = stringSetPreferencesKey("custom_icons")
     val hiddenApps = stringSetPreferencesKey("hidden_apps")
     val protectedApps = stringSetPreferencesKey("protected_apps")
     val dock = stringPreferencesKey("dock")
@@ -120,6 +121,10 @@ internal fun readSettingsFromPreferences(p: Preferences): LauncherSettings {
         smartspaceShowCalendar = p[K.smartspaceShowCalendar] ?: true,
         smartspaceShowAlarm = p[K.smartspaceShowAlarm] ?: true,
         smartspaceShowBattery = p[K.smartspaceShowBattery] ?: true,
+        customIcons = p[K.customIcons]?.mapNotNull { entry ->
+            val idx = entry.indexOf('=')
+            if (idx > 0 && idx < entry.lastIndex) entry.substring(0, idx) to entry.substring(idx + 1) else null
+        }?.toMap() ?: emptyMap(),
         hiddenApps = p[K.hiddenApps] ?: emptySet(),
         protectedApps = p[K.protectedApps] ?: emptySet(),
         dock = p[K.dock]?.lines()?.filter { it.isNotBlank() } ?: emptyList(),
@@ -158,6 +163,7 @@ internal fun writeSettingsToPreferences(p: MutablePreferences, s: LauncherSettin
     p[K.smartspaceShowCalendar] = s.smartspaceShowCalendar
     p[K.smartspaceShowAlarm] = s.smartspaceShowAlarm
     p[K.smartspaceShowBattery] = s.smartspaceShowBattery
+    p[K.customIcons] = s.customIcons.entries.map { (k, v) -> "$k=$v" }.toSet()
     p[K.hiddenApps] = s.hiddenApps
     p[K.protectedApps] = s.protectedApps
     p[K.dock] = s.dock.take(DOCK_MAX).joinToString("\n")

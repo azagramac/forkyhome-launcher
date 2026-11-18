@@ -50,6 +50,10 @@ class SettingsPersistenceTest {
             smartspaceShowCalendar = false,
             smartspaceShowAlarm = false,
             smartspaceShowBattery = false,
+            customIcons = mapOf(
+                "com.whatsapp/com.whatsapp.Main" to "io.github.PapirusDevelopmentTeam.papirus_icons|whatsapp",
+                "com.android.chrome/com.google.android.apps.chrome.Main" to "SYSTEM",
+            ),
             hiddenApps = setOf("com.secret.app1", "com.secret.app2"),
             protectedApps = setOf("com.bank.app"),
             dock = listOf("com.android.dialer/.Main", "com.android.mms/.Main"),

@@ -40,6 +40,7 @@ class IconPacks(private val ctx: Context) {
     private var iconUpons: List<String> = emptyList()
     private var scaleFactor: Float = 1f
     private var res: Resources? = null
+    private val resourcesCache = HashMap<String, Resources>()
     private val maskBitmapCache = HashMap<String, Bitmap?>()
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
@@ -212,6 +213,79 @@ class IconPacks(private val ctx: Context) {
     @Synchronized
     fun hasMaskOrBack(): Boolean =
         iconBacks.isNotEmpty() || iconMasks.isNotEmpty() || iconUpons.isNotEmpty()
+
+    private fun packResources(packPkg: String): Resources =
+        if (packPkg == loadedPkg && res != null) res!!
+        else synchronized(resourcesCache) {
+            resourcesCache.getOrPut(packPkg) {
+                ctx.packageManager.getResourcesForApplication(packPkg)
+            }
+        }
+
+    fun loadDrawableBitmap(packPkg: String, drawableName: String, sizePx: Int): Bitmap? = runCatching {
+        val r = packResources(packPkg)
+        loadPackDrawable(r, packPkg, drawableName)?.toBitmap(sizePx, sizePx)
+    }.getOrNull()
+
+    fun listDrawables(packPkg: String): List<String> = runCatching {
+        val r = packResources(packPkg)
+        val out = LinkedHashSet<String>(1024)
+        var stream: InputStream? = null
+        val xmlId = r.getIdentifier("drawable", "xml", packPkg)
+        val parser: XmlPullParser? = when {
+            xmlId != 0 -> r.getXml(xmlId)
+            else -> runCatching {
+                val rawId = r.getIdentifier("drawable", "raw", packPkg)
+                stream = if (rawId != 0) r.openRawResource(rawId) else r.assets.open("drawable.xml")
+                XmlPullParserFactory.newInstance().newPullParser().apply {
+                    setInput(stream, "UTF-8")
+                }
+            }.getOrNull()
+        }
+        if (parser != null) {
+            try {
+                var ev = parser.eventType
+                while (ev != XmlPullParser.END_DOCUMENT) {
+                    if (ev == XmlPullParser.START_TAG && parser.name == "item") {
+                        val dr = parser.getAttributeValue(null, "drawable")
+                        if (!dr.isNullOrBlank()) out.add(dr)
+                    }
+                    ev = parser.next()
+                }
+            } finally {
+                runCatching { stream?.close() }
+            }
+        }
+        if (out.isEmpty()) {
+            val afXmlId = r.getIdentifier("appfilter", "xml", packPkg)
+            var afStream: InputStream? = null
+            val afParser: XmlPullParser? = when {
+                afXmlId != 0 -> r.getXml(afXmlId)
+                else -> runCatching {
+                    val rawId = r.getIdentifier("appfilter", "raw", packPkg)
+                    afStream = if (rawId != 0) r.openRawResource(rawId) else r.assets.open("appfilter.xml")
+                    XmlPullParserFactory.newInstance().newPullParser().apply {
+                        setInput(afStream, "UTF-8")
+                    }
+                }.getOrNull()
+            }
+            if (afParser != null) {
+                try {
+                    var ev = afParser.eventType
+                    while (ev != XmlPullParser.END_DOCUMENT) {
+                        if (ev == XmlPullParser.START_TAG && afParser.name == "item") {
+                            val dr = afParser.getAttributeValue(null, "drawable")
+                            if (!dr.isNullOrBlank()) out.add(dr)
+                        }
+                        ev = afParser.next()
+                    }
+                } finally {
+                    runCatching { afStream?.close() }
+                }
+            }
+        }
+        out.sorted()
+    }.getOrDefault(emptyList())
 
     private fun collectImgAttributes(parser: XmlPullParser, out: MutableList<String>) {
         for (i in 0 until parser.attributeCount) {
