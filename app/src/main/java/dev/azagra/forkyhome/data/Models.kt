@@ -132,6 +132,7 @@ data class LauncherSettings(
     val swipeDownNotifications: Boolean = true,
     val doubleTapToSleep: Boolean = false,
     val showAtAGlance: Boolean = true,
+    val onboardingDone: Boolean = false,
     val smartspaceShowDate: Boolean = true,
     val smartspaceShowTime: Boolean = false,
     val smartspaceTimeFormat: SmartspaceTimeFormat = SmartspaceTimeFormat.SYSTEM,

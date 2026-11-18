@@ -44,6 +44,7 @@ class SettingsPersistenceTest {
             swipeDownNotifications = false,
             doubleTapToSleep = true,
             showAtAGlance = false,
+            onboardingDone = true,
             smartspaceShowDate = false,
             smartspaceShowTime = true,
             smartspaceTimeFormat = SmartspaceTimeFormat.TWENTY_FOUR_HOUR,

@@ -151,4 +151,19 @@
     <string name="footer_version_build">Version %1$s (Build %2$d)</string>
     <string name="footer_open_source">Open Source on GitHub</string>
     <string name="footer_repo_url" translatable="false">https://github.com/azagramac/forkyhome-launcher</string>
+
+    <string name="onboarding_welcome_title">Welcome to ForkyHome</string>
+    <string name="onboarding_welcome_subtitle">A clean, fast Material You home screen.</string>
+    <string name="onboarding_tip_drawer_title">Swipe up for apps</string>
+    <string name="onboarding_tip_drawer_desc">Open the app drawer and search instantly.</string>
+    <string name="onboarding_tip_notif_title">Swipe down for notifications</string>
+    <string name="onboarding_tip_notif_desc">Pull down anywhere on the home screen.</string>
+    <string name="onboarding_tip_edit_title">Long-press to customize</string>
+    <string name="onboarding_tip_edit_desc">Move apps, create folders, resize widgets, or change individual icons.</string>
+    <string name="onboarding_setup_title">Quick setup</string>
+    <string name="onboarding_setup_subtitle">Set up the essentials in seconds.</string>
+    <string name="onboarding_default_done">Default launcher active</string>
+    <string name="action_skip">Skip</string>
+    <string name="action_next">Next</string>
+    <string name="action_get_started">Get started</string>
 </resources>

@@ -1508,6 +1508,14 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             onDismiss = { editingIconApp = null },
         )
     }
+
+    if (!s.onboardingDone) {
+        OnboardingOverlay(
+            s = s,
+            onUpdateSettings = { edit(it) },
+            onFinish = { edit { it.copy(onboardingDone = true) } },
+        )
+    }
 }
 
 @Composable

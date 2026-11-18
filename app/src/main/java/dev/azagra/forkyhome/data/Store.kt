@@ -37,6 +37,7 @@ private object K {
     val swipeDownNotif = booleanPreferencesKey("swipe_down_notif")
     val doubleTapSleep = booleanPreferencesKey("double_tap_sleep")
     val atAGlance = booleanPreferencesKey("at_a_glance")
+    val onboardingDone = booleanPreferencesKey("onboarding_done")
     val smartspaceShowDate = booleanPreferencesKey("smartspace_show_date")
     val smartspaceShowTime = booleanPreferencesKey("smartspace_show_time")
     val smartspaceTimeFormat = stringPreferencesKey("smartspace_time_format")
@@ -115,6 +116,7 @@ internal fun readSettingsFromPreferences(p: Preferences): LauncherSettings {
         swipeDownNotifications = p[K.swipeDownNotif] ?: true,
         doubleTapToSleep = p[K.doubleTapSleep] ?: false,
         showAtAGlance = p[K.atAGlance] ?: true,
+        onboardingDone = p[K.onboardingDone] ?: false,
         smartspaceShowDate = p[K.smartspaceShowDate] ?: true,
         smartspaceShowTime = p[K.smartspaceShowTime] ?: false,
         smartspaceTimeFormat = p[K.smartspaceTimeFormat].toEnum(SmartspaceTimeFormat.SYSTEM),
@@ -157,6 +159,7 @@ internal fun writeSettingsToPreferences(p: MutablePreferences, s: LauncherSettin
     p[K.swipeDownNotif] = s.swipeDownNotifications
     p[K.doubleTapSleep] = s.doubleTapToSleep
     p[K.atAGlance] = s.showAtAGlance
+    p[K.onboardingDone] = s.onboardingDone
     p[K.smartspaceShowDate] = s.smartspaceShowDate
     p[K.smartspaceShowTime] = s.smartspaceShowTime
     p[K.smartspaceTimeFormat] = s.smartspaceTimeFormat.name
