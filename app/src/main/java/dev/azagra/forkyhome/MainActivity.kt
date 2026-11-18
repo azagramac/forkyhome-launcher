@@ -67,13 +67,23 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         widgets.host.startListening()
+    }
+
+    override fun onResume() {
+        super.onResume()
         syncLauncherDrawerIconVisibility()
     }
 
     private fun syncLauncherDrawerIconVisibility() {
         runCatching {
-            val roleManager = getSystemService(RoleManager::class.java) ?: return
-            val isDefaultHome = roleManager.isRoleHeld(RoleManager.ROLE_HOME)
+            val roleManager = getSystemService(RoleManager::class.java)
+            val isDefaultByRole = roleManager?.isRoleHeld(RoleManager.ROLE_HOME) == true
+            val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val resolvedHome = packageManager.resolveActivity(
+                homeIntent,
+                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong()),
+            )?.activityInfo?.packageName
+            val isDefaultHome = isDefaultByRole || resolvedHome == packageName
             val desiredState = if (isDefaultHome) {
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED
             } else {
