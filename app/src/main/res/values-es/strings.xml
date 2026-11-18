@@ -10,6 +10,11 @@
     <string name="action_remove_from_home">Quitar del escritorio</string>
     <string name="action_remove_from_dock">Quitar del dock</string>
     <string name="action_hide_app">Ocultar aplicación</string>
+    <string name="action_edit_icon">Cambiar icono</string>
+    <string name="dialog_edit_icon_title">Elegir icono para %1$s</string>
+    <string name="edit_icon_default">Predeterminado (automático)</string>
+    <string name="edit_icon_system">Icono del sistema</string>
+    <string name="edit_icon_search">Buscar iconos</string>
     <string name="action_protect_app">Proteger aplicación</string>
     <string name="action_unprotect_app">Quitar protección</string>
     <string name="toast_added_to_home">Añadido al escritorio</string>
@@ -84,6 +89,10 @@
     <string name="settings_double_tap_sleep">Doble toque para apagar pantalla</string>
     <string name="settings_double_tap_sleep_desc">Toca dos veces en un hueco vacío del escritorio para bloquear la pantalla</string>
     <string name="settings_grant_accessibility_access">Activar servicio de accesibilidad</string>
+    <string name="settings_accessibility_enabled">Servicio de accesibilidad activo</string>
+    <string name="dialog_accessibility_title">Permiso de accesibilidad</string>
+    <string name="dialog_accessibility_desc">ForkyHome usa el servicio de accesibilidad de Android únicamente para bloquear la pantalla cuando tocas dos veces un hueco vacío del escritorio. Nunca lee el contenido de la pantalla ni recopila datos.</string>
+    <string name="action_continue">Continuar</string>
     <string name="toast_enable_accessibility_lock">Activa ForkyHome en Accesibilidad para poder bloquear la pantalla</string>
     <string name="settings_at_a_glance">De un vistazo</string>
     <string name="settings_at_a_glance_desc">Muestra fecha, hora, eventos de calendario, alarmas y batería</string>
@@ -140,4 +149,19 @@
 
     <string name="footer_version_build">Versión %1$s (Build %2$d)</string>
     <string name="footer_open_source">Código abierto en GitHub</string>
+
+    <string name="onboarding_welcome_title">Bienvenido a ForkyHome</string>
+    <string name="onboarding_welcome_subtitle">Un escritorio Material You limpio y fluido.</string>
+    <string name="onboarding_tip_drawer_title">Desliza arriba para tus apps</string>
+    <string name="onboarding_tip_drawer_desc">Abre el cajón de aplicaciones y busca al instante.</string>
+    <string name="onboarding_tip_notif_title">Desliza abajo para notificaciones</string>
+    <string name="onboarding_tip_notif_desc">Tira hacia abajo desde cualquier parte del escritorio.</string>
+    <string name="onboarding_tip_edit_title">Mantén pulsado para personalizar</string>
+    <string name="onboarding_tip_edit_desc">Mueve apps, crea carpetas, redimensiona widgets o cambia iconos individuales.</string>
+    <string name="onboarding_setup_title">Configuración rápida</string>
+    <string name="onboarding_setup_subtitle">Deja todo listo en un momento.</string>
+    <string name="onboarding_default_done">Launcher predeterminado activo</string>
+    <string name="action_skip">Saltar</string>
+    <string name="action_next">Siguiente</string>
+    <string name="action_get_started">Empezar</string>
 </resources>

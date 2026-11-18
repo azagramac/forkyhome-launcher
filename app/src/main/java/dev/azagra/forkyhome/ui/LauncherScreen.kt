@@ -367,6 +367,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     var showWidgets by remember { mutableStateOf(false) }
     var resizingWidgetId by remember { mutableStateOf<Int?>(null) }
     var openFolderId by remember { mutableStateOf<Int?>(null) }
+    var editingIconApp by remember { mutableStateOf<AppInfo?>(null) }
 
     var gridBoundsInRoot by remember { mutableStateOf(Rect.Zero) }
     var dockBoundsInRoot by remember { mutableStateOf(Rect.Zero) }
@@ -418,8 +419,8 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     val homeRows = s.homeRows.coerceIn(4, 7)
     val dockMarginPx = with(density) { 20.dp.toPx() }
 
-    LaunchedEffect(s.iconPack, s.themedIcons, dark, s.iconShape) {
-        repo.configure(IconConfig(s.iconPack, s.themedIcons, dark, s.iconShape))
+    LaunchedEffect(s.iconPack, s.themedIcons, dark, s.iconShape, s.customIcons) {
+        repo.configure(IconConfig(s.iconPack, s.themedIcons, dark, s.iconShape, s.customIcons))
     }
     LaunchedEffect(apps) {
         if (apps.isNotEmpty()) store.update {
@@ -444,6 +445,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             showSettings = false
             showMenu = false
             openFolderId = null
+            editingIconApp = null
             resizingWidgetId = null
             dragSession = null
             isHoldingItem = false
@@ -506,6 +508,9 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 }
             }
         )
+        add(MenuAction(ctx.getString(R.string.action_edit_icon), Icons.Default.Edit) {
+            editingIconApp = app
+        })
         add(MenuAction(ctx.getString(R.string.action_app_info), Icons.Default.Info) { details(app.pkg) })
         add(MenuAction(ctx.getString(R.string.action_uninstall), Icons.Default.Delete) { uninstall(app.pkg) })
     }
@@ -1484,6 +1489,31 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             controller = widgets,
             onPick = { info -> showWidgets = false; widgets.request(info) },
             onDismiss = { showWidgets = false },
+        )
+    }
+
+    editingIconApp?.let { targetApp ->
+        IconOverrideDialog(
+            app = targetApp,
+            activePack = s.iconPack,
+            currentOverride = s.customIcons[targetApp.key],
+            packs = repo.packs,
+            onSelectOverride = { newVal ->
+                edit { st ->
+                    val next = if (newVal == null) st.customIcons - targetApp.key else st.customIcons + (targetApp.key to newVal)
+                    st.copy(customIcons = next)
+                }
+                editingIconApp = null
+            },
+            onDismiss = { editingIconApp = null },
+        )
+    }
+
+    if (!s.onboardingDone) {
+        OnboardingOverlay(
+            s = s,
+            onUpdateSettings = { edit(it) },
+            onFinish = { edit { it.copy(onboardingDone = true) } },
         )
     }
 }

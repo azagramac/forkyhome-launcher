@@ -170,6 +170,7 @@ fun SettingsScreen(
     var drawerIconScale by remember(s.drawerIconScale) { mutableFloatStateOf(s.drawerIconScale) }
     var packDialog by remember { mutableStateOf(false) }
     var privacyDialog by remember { mutableStateOf(false) }
+    var accessibilityDisclosureDialog by remember { mutableStateOf(false) }
 
     val roleManager = remember { ctx.getSystemService(RoleManager::class.java) }
     val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
@@ -740,23 +741,41 @@ fun SettingsScreen(
                                     title = stringResource(R.string.settings_double_tap_sleep),
                                     subtitle = stringResource(R.string.settings_double_tap_sleep_desc),
                                     checked = s.doubleTapToSleep,
-                                    onChecked = { v -> onChange { it.copy(doubleTapToSleep = v) } },
+                                    onChecked = { v ->
+                                        onChange { it.copy(doubleTapToSleep = v) }
+                                        if (v && !accessibilityEnabled) {
+                                            accessibilityDisclosureDialog = true
+                                        }
+                                    },
                                 )
-                                if (s.doubleTapToSleep && !accessibilityEnabled) {
-                                    FilledTonalButton(
-                                        onClick = {
-                                            runCatching {
-                                                ctx.startActivity(
-                                                    Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                )
-                                            }
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                    ) {
-                                        Icon(Icons.Default.Lock, null, Modifier.size(18.dp))
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(stringResource(R.string.settings_grant_accessibility_access))
+                                if (s.doubleTapToSleep) {
+                                    if (accessibilityEnabled) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                            Text(
+                                                text = stringResource(R.string.settings_accessibility_enabled),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                    } else {
+                                        FilledTonalButton(
+                                            onClick = { accessibilityDisclosureDialog = true },
+                                            modifier = Modifier.fillMaxWidth(),
+                                        ) {
+                                            Icon(Icons.Default.Lock, null, Modifier.size(18.dp))
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(stringResource(R.string.settings_grant_accessibility_access))
+                                        }
                                     }
                                 }
                             }
@@ -1065,6 +1084,38 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton({ privacyDialog = false }) { Text(stringResource(R.string.action_close)) }
+            },
+        )
+    }
+
+    if (accessibilityDisclosureDialog) {
+        AlertDialog(
+            onDismissRequest = { accessibilityDisclosureDialog = false },
+            shape = SectionCardShape,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            title = { Text(stringResource(R.string.dialog_accessibility_title)) },
+            text = { Text(stringResource(R.string.dialog_accessibility_desc)) },
+            dismissButton = {
+                TextButton(onClick = { accessibilityDisclosureDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        accessibilityDisclosureDialog = false
+                        runCatching {
+                            ctx.startActivity(
+                                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    },
+                ) {
+                    Text(stringResource(R.string.action_continue))
+                }
             },
         )
     }

@@ -1,6 +1,9 @@
 package dev.azagra.forkyhome
 
+import android.app.role.RoleManager
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -64,6 +67,37 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         widgets.host.startListening()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        syncLauncherDrawerIconVisibility()
+    }
+
+    private fun syncLauncherDrawerIconVisibility() {
+        runCatching {
+            val roleManager = getSystemService(RoleManager::class.java)
+            val isDefaultByRole = roleManager?.isRoleHeld(RoleManager.ROLE_HOME) == true
+            val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val resolvedHome = packageManager.resolveActivity(
+                homeIntent,
+                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong()),
+            )?.activityInfo?.packageName
+            val isDefaultHome = isDefaultByRole || resolvedHome == packageName
+            val desiredState = if (isDefaultHome) {
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+            } else {
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            }
+            val alias = ComponentName(this, "$packageName.LauncherEntryAlias")
+            if (packageManager.getComponentEnabledSetting(alias) != desiredState) {
+                packageManager.setComponentEnabledSetting(
+                    alias,
+                    desiredState,
+                    PackageManager.DONT_KILL_APP,
+                )
+            }
+        }
     }
 
     override fun onStop() {

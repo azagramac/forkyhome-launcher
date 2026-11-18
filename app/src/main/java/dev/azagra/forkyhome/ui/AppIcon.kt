@@ -245,19 +245,21 @@ fun AppIcon(
             }
         }
         if (menu) {
-            val actions by produceState<List<MenuAction>>(emptyList(), app.key) {
+            val actions by produceState<List<MenuAction>?>(null, app.key) {
                 value = withContext(Dispatchers.IO) { currentActionsProvider() }
             }
-            val shortcuts = remember(actions) { actions.filter { it.isShortcut } }
-            val standardActions = remember(actions) { actions.filter { !it.isShortcut } }
-            DropdownMenu(
-                expanded = true,
-                onDismissRequest = { menu = false },
-                shape = PopupMenuShape,
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                tonalElevation = 6.dp,
-                shadowElevation = 8.dp,
-            ) {
+            val loadedActions = actions
+            if (loadedActions != null) {
+                val shortcuts = remember(loadedActions) { loadedActions.filter { it.isShortcut } }
+                val standardActions = remember(loadedActions) { loadedActions.filter { !it.isShortcut } }
+                DropdownMenu(
+                    expanded = true,
+                    onDismissRequest = { menu = false },
+                    shape = PopupMenuShape,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 6.dp,
+                    shadowElevation = 8.dp,
+                ) {
                 shortcuts.forEach { a ->
                     DropdownMenuItem(
                         text = {
@@ -320,6 +322,7 @@ fun AppIcon(
                         },
                     )
                 }
+            }
             }
         }
     }

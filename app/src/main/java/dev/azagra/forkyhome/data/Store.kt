@@ -37,12 +37,14 @@ private object K {
     val swipeDownNotif = booleanPreferencesKey("swipe_down_notif")
     val doubleTapSleep = booleanPreferencesKey("double_tap_sleep")
     val atAGlance = booleanPreferencesKey("at_a_glance")
+    val onboardingDone = booleanPreferencesKey("onboarding_done")
     val smartspaceShowDate = booleanPreferencesKey("smartspace_show_date")
     val smartspaceShowTime = booleanPreferencesKey("smartspace_show_time")
     val smartspaceTimeFormat = stringPreferencesKey("smartspace_time_format")
     val smartspaceShowCalendar = booleanPreferencesKey("smartspace_show_calendar")
     val smartspaceShowAlarm = booleanPreferencesKey("smartspace_show_alarm")
     val smartspaceShowBattery = booleanPreferencesKey("smartspace_show_battery")
+    val customIcons = stringSetPreferencesKey("custom_icons")
     val hiddenApps = stringSetPreferencesKey("hidden_apps")
     val protectedApps = stringSetPreferencesKey("protected_apps")
     val dock = stringPreferencesKey("dock")
@@ -114,12 +116,17 @@ internal fun readSettingsFromPreferences(p: Preferences): LauncherSettings {
         swipeDownNotifications = p[K.swipeDownNotif] ?: true,
         doubleTapToSleep = p[K.doubleTapSleep] ?: false,
         showAtAGlance = p[K.atAGlance] ?: true,
+        onboardingDone = p[K.onboardingDone] ?: false,
         smartspaceShowDate = p[K.smartspaceShowDate] ?: true,
         smartspaceShowTime = p[K.smartspaceShowTime] ?: false,
         smartspaceTimeFormat = p[K.smartspaceTimeFormat].toEnum(SmartspaceTimeFormat.SYSTEM),
         smartspaceShowCalendar = p[K.smartspaceShowCalendar] ?: true,
         smartspaceShowAlarm = p[K.smartspaceShowAlarm] ?: true,
         smartspaceShowBattery = p[K.smartspaceShowBattery] ?: true,
+        customIcons = p[K.customIcons]?.mapNotNull { entry ->
+            val idx = entry.indexOf('=')
+            if (idx > 0 && idx < entry.lastIndex) entry.substring(0, idx) to entry.substring(idx + 1) else null
+        }?.toMap() ?: emptyMap(),
         hiddenApps = p[K.hiddenApps] ?: emptySet(),
         protectedApps = p[K.protectedApps] ?: emptySet(),
         dock = p[K.dock]?.lines()?.filter { it.isNotBlank() } ?: emptyList(),
@@ -152,12 +159,14 @@ internal fun writeSettingsToPreferences(p: MutablePreferences, s: LauncherSettin
     p[K.swipeDownNotif] = s.swipeDownNotifications
     p[K.doubleTapSleep] = s.doubleTapToSleep
     p[K.atAGlance] = s.showAtAGlance
+    p[K.onboardingDone] = s.onboardingDone
     p[K.smartspaceShowDate] = s.smartspaceShowDate
     p[K.smartspaceShowTime] = s.smartspaceShowTime
     p[K.smartspaceTimeFormat] = s.smartspaceTimeFormat.name
     p[K.smartspaceShowCalendar] = s.smartspaceShowCalendar
     p[K.smartspaceShowAlarm] = s.smartspaceShowAlarm
     p[K.smartspaceShowBattery] = s.smartspaceShowBattery
+    p[K.customIcons] = s.customIcons.entries.map { (k, v) -> "$k=$v" }.toSet()
     p[K.hiddenApps] = s.hiddenApps
     p[K.protectedApps] = s.protectedApps
     p[K.dock] = s.dock.take(DOCK_MAX).joinToString("\n")

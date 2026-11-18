@@ -10,6 +10,11 @@
     <string name="action_remove_from_home">Remove from home screen</string>
     <string name="action_remove_from_dock">Remove from dock</string>
     <string name="action_hide_app">Hide app</string>
+    <string name="action_edit_icon">Edit icon</string>
+    <string name="dialog_edit_icon_title">Choose icon for %1$s</string>
+    <string name="edit_icon_default">Default (automatic)</string>
+    <string name="edit_icon_system">System icon</string>
+    <string name="edit_icon_search">Search icons</string>
     <string name="action_protect_app">Protect app</string>
     <string name="action_unprotect_app">Remove protection</string>
     <string name="toast_added_to_home">Added to home screen</string>
@@ -84,6 +89,10 @@
     <string name="settings_double_tap_sleep">Double-tap to sleep</string>
     <string name="settings_double_tap_sleep_desc">Double-tap an empty area on the home screen to turn off and lock the screen</string>
     <string name="settings_grant_accessibility_access">Enable accessibility service</string>
+    <string name="settings_accessibility_enabled">Accessibility service enabled</string>
+    <string name="dialog_accessibility_title">Accessibility permission</string>
+    <string name="dialog_accessibility_desc">ForkyHome uses Android\'s Accessibility Service solely to lock the screen when you double-tap an empty area on the home screen. It never reads screen content or collects personal data.</string>
+    <string name="action_continue">Continue</string>
     <string name="toast_enable_accessibility_lock">Enable ForkyHome in Accessibility settings to lock the screen</string>
     <string name="settings_at_a_glance">At a Glance</string>
     <string name="settings_at_a_glance_desc">Show date, time, calendar events, alarms, and battery status</string>
@@ -142,4 +151,19 @@
     <string name="footer_version_build">Version %1$s (Build %2$d)</string>
     <string name="footer_open_source">Open Source on GitHub</string>
     <string name="footer_repo_url" translatable="false">https://github.com/azagramac/forkyhome-launcher</string>
+
+    <string name="onboarding_welcome_title">Welcome to ForkyHome</string>
+    <string name="onboarding_welcome_subtitle">A clean, fast Material You home screen.</string>
+    <string name="onboarding_tip_drawer_title">Swipe up for apps</string>
+    <string name="onboarding_tip_drawer_desc">Open the app drawer and search instantly.</string>
+    <string name="onboarding_tip_notif_title">Swipe down for notifications</string>
+    <string name="onboarding_tip_notif_desc">Pull down anywhere on the home screen.</string>
+    <string name="onboarding_tip_edit_title">Long-press to customize</string>
+    <string name="onboarding_tip_edit_desc">Move apps, create folders, resize widgets, or change individual icons.</string>
+    <string name="onboarding_setup_title">Quick setup</string>
+    <string name="onboarding_setup_subtitle">Set up the essentials in seconds.</string>
+    <string name="onboarding_default_done">Default launcher active</string>
+    <string name="action_skip">Skip</string>
+    <string name="action_next">Next</string>
+    <string name="action_get_started">Get started</string>
 </resources>

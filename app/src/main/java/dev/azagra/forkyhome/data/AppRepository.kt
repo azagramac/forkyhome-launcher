@@ -225,12 +225,13 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
     }
 
     private fun buildAppInfo(info: LauncherActivityInfo, user: UserHandle, c: IconConfig): AppInfo {
-        val (normalIcon, homeIcon) = loadOrRender(info, user, c)
         val userKey = if (user == Process.myUserHandle()) {
             info.componentName.flattenToString()
         } else {
             "${info.componentName.flattenToString()}#${user.hashCode()}"
         }
+        val override = c.customIcons[userKey]
+        val (normalIcon, homeIcon) = loadOrRender(info, user, c, override)
         return AppInfo(
             component = info.componentName,
             label = info.label.toString(),
@@ -246,20 +247,22 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
         info: LauncherActivityInfo,
         user: UserHandle,
         c: IconConfig,
+        override: String?,
     ): Pair<ImageBitmap, ImageBitmap> {
         val daySuffix = if (c.pack != null) "_d${Calendar.getInstance().get(Calendar.DAY_OF_MONTH)}" else ""
-        val cfgKey = "v2_${c.pack ?: "sys"}_${c.themed}_${c.dark}_${c.shape.name}$daySuffix"
+        val ovSuffix = override?.let { "_ov_${it.hashCode()}" } ?: ""
+        val cfgKey = "v2_${c.pack ?: "sys"}_${c.themed}_${c.dark}_${c.shape.name}$daySuffix$ovSuffix"
         val baseId = "${info.componentName.packageName}_${info.componentName.className}_${user.hashCode()}_${cfgKey.hashCode()}"
         val normalFile = File(cacheDir, "${baseId}_n.png")
         val homeFile = File(cacheDir, "${baseId}_h.png")
 
         val cachedNormal = decodeCached(normalFile)
-        val cachedHome = if (c.themed && c.pack == null) decodeCached(homeFile) else cachedNormal
+        val cachedHome = if (c.themed && (c.pack == null || override == "SYSTEM")) decodeCached(homeFile) else cachedNormal
         if (cachedNormal != null && cachedHome != null) {
             return cachedNormal to cachedHome
         }
 
-        val (normalBmp, homeBmp) = renderBitmaps(info, c)
+        val (normalBmp, homeBmp) = renderBitmaps(info, c, override)
         saveCached(normalFile, normalBmp)
         if (homeBmp !== normalBmp) {
             saveCached(homeFile, homeBmp)
@@ -289,17 +292,29 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
         }
     }
 
-    private fun renderBitmaps(info: LauncherActivityInfo, c: IconConfig): Pair<Bitmap, Bitmap> {
+    private fun renderBitmaps(info: LauncherActivityInfo, c: IconConfig, override: String?): Pair<Bitmap, Bitmap> {
         val systemDrawable: Drawable = info.getIcon(0)
-        val packBitmap = if (c.pack != null) {
-            packs.renderBitmap(info.componentName, systemDrawable, ICON_PX)
-        } else null
+        val customPackBitmap = when {
+            override == "SYSTEM" -> null
+            override != null && '|' in override -> {
+                val packPkg = override.substringBefore('|')
+                val drName = override.substringAfter('|')
+                packs.loadDrawableBitmap(packPkg, drName, ICON_PX)
+            }
+            else -> null
+        }
+        val packBitmap = when {
+            override == "SYSTEM" -> null
+            customPackBitmap != null -> customPackBitmap
+            c.pack != null -> packs.renderBitmap(info.componentName, systemDrawable, ICON_PX)
+            else -> null
+        }
 
-        val isFreeformPackIcon = packBitmap != null && !packs.hasMaskOrBack()
+        val isFreeformPackIcon = packBitmap != null && (customPackBitmap != null || !packs.hasMaskOrBack())
         val rawNormal = packBitmap ?: systemDrawable.toBitmap(ICON_PX, ICON_PX)
         val normalizedNormal = when {
             packBitmap != null -> normalizeOpticalSize(rawNormal, targetFillRatio = 0.90f)
-            c.pack != null -> normalizeOpticalSize(rawNormal, targetFillRatio = 0.80f)
+            c.pack != null && override != "SYSTEM" -> normalizeOpticalSize(rawNormal, targetFillRatio = 0.80f)
             else -> rawNormal
         }
         if (normalizedNormal !== rawNormal) rawNormal.recycle()
@@ -316,7 +331,7 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
             if (packBitmap == null && c.themed && systemDrawable is AdaptiveIconDrawable) {
                 val rawThemed = themed(systemDrawable, c.dark)?.toBitmap(ICON_PX, ICON_PX)
                 if (rawThemed != null) {
-                    val normalizedThemed = if (c.pack != null) normalizeOpticalSize(rawThemed, targetFillRatio = 0.80f) else rawThemed
+                    val normalizedThemed = if (c.pack != null && override != "SYSTEM") normalizeOpticalSize(rawThemed, targetFillRatio = 0.80f) else rawThemed
                     if (normalizedThemed !== rawThemed) rawThemed.recycle()
                     val clipped = clipBitmapToShape(normalizedThemed, c.shape)
                     if (clipped !== normalizedThemed) normalizedThemed.recycle()
