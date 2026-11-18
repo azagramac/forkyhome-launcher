@@ -41,6 +41,9 @@ Any sensitive permission or system API used by the launcher operates **strictly 
   * **Purpose:** Allows you to initiate the standard Android system uninstallation dialog from an app's long-press context menu.
 * **Notification Panel (`EXPAND_STATUS_BAR`):**
   * **Purpose:** Allows the optional swipe-down gesture on the home screen to expand the system notification shade.
+* **Accessibility Service (`BIND_ACCESSIBILITY_SERVICE`, optional user-enabled):**
+  * **Purpose:** Used exclusively when you enable **Double-tap to sleep** to lock the screen via `GLOBAL_ACTION_LOCK_SCREEN`.
+  * **Handling:** Configured with `canRetrieveWindowContent="false"` and `canPerformGestures="false"`. ForkyHome never reads screen content, keystrokes, or personal information.
 
 ---
 

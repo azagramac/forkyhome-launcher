@@ -89,6 +89,10 @@
     <string name="settings_double_tap_sleep">Double-tap to sleep</string>
     <string name="settings_double_tap_sleep_desc">Double-tap an empty area on the home screen to turn off and lock the screen</string>
     <string name="settings_grant_accessibility_access">Enable accessibility service</string>
+    <string name="settings_accessibility_enabled">Accessibility service enabled</string>
+    <string name="dialog_accessibility_title">Accessibility permission</string>
+    <string name="dialog_accessibility_desc">ForkyHome uses Android\'s Accessibility Service solely to lock the screen when you double-tap an empty area on the home screen. It never reads screen content or collects personal data.</string>
+    <string name="action_continue">Continue</string>
     <string name="toast_enable_accessibility_lock">Enable ForkyHome in Accessibility settings to lock the screen</string>
     <string name="settings_at_a_glance">At a Glance</string>
     <string name="settings_at_a_glance_desc">Show date, time, calendar events, alarms, and battery status</string>

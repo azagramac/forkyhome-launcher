@@ -96,6 +96,19 @@
             </intent-filter>
         </activity-alias>
 
+        <service
+            android:name=".util.LockScreenService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_lock_service" />
+        </service>
+
         <!--
             NOTA: Google Play Protect (Protección contra fraudes mejorada en Android 15+)
             bloquea automáticamente cualquier APK instalado fuera de Google Play Store

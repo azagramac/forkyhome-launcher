@@ -89,6 +89,10 @@
     <string name="settings_double_tap_sleep">Doble toque para apagar pantalla</string>
     <string name="settings_double_tap_sleep_desc">Toca dos veces en un hueco vacío del escritorio para bloquear la pantalla</string>
     <string name="settings_grant_accessibility_access">Activar servicio de accesibilidad</string>
+    <string name="settings_accessibility_enabled">Servicio de accesibilidad activo</string>
+    <string name="dialog_accessibility_title">Permiso de accesibilidad</string>
+    <string name="dialog_accessibility_desc">ForkyHome usa el servicio de accesibilidad de Android únicamente para bloquear la pantalla cuando tocas dos veces un hueco vacío del escritorio. Nunca lee el contenido de la pantalla ni recopila datos.</string>
+    <string name="action_continue">Continuar</string>
     <string name="toast_enable_accessibility_lock">Activa ForkyHome en Accesibilidad para poder bloquear la pantalla</string>
     <string name="settings_at_a_glance">De un vistazo</string>
     <string name="settings_at_a_glance_desc">Muestra fecha, hora, eventos de calendario, alarmas y batería</string>
