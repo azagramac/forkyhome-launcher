@@ -150,18 +150,13 @@
     <string name="footer_version_build">Versión %1$s (Build %2$d)</string>
     <string name="footer_open_source">Código abierto en GitHub</string>
 
-    <string name="onboarding_welcome_title">Bienvenido a ForkyHome</string>
-    <string name="onboarding_welcome_subtitle">Un escritorio Material You limpio y fluido.</string>
-    <string name="onboarding_tip_drawer_title">Desliza arriba para tus apps</string>
-    <string name="onboarding_tip_drawer_desc">Abre el cajón de aplicaciones y busca al instante.</string>
-    <string name="onboarding_tip_notif_title">Desliza abajo para notificaciones</string>
-    <string name="onboarding_tip_notif_desc">Tira hacia abajo desde cualquier parte del escritorio.</string>
-    <string name="onboarding_tip_edit_title">Mantén pulsado para personalizar</string>
-    <string name="onboarding_tip_edit_desc">Mueve apps, crea carpetas, redimensiona widgets o cambia iconos individuales.</string>
-    <string name="onboarding_setup_title">Configuración rápida</string>
-    <string name="onboarding_setup_subtitle">Deja todo listo en un momento.</string>
-    <string name="onboarding_default_done">Launcher predeterminado activo</string>
+    <string name="onboarding_step1_title">Cajón de aplicaciones</string>
+    <string name="onboarding_step1_desc">Desliza hacia arriba desde aquí para abrir todas tus apps.</string>
+    <string name="onboarding_step2_title">Escritorio y carpetas</string>
+    <string name="onboarding_step2_desc">Mantén pulsado un icono para moverlo. Suéltalo sobre otro para crear una carpeta.</string>
+    <string name="onboarding_step3_title">Widgets y ajustes</string>
+    <string name="onboarding_step3_desc">Mantén pulsado un hueco vacío para añadir widgets, cambiar el fondo o abrir los ajustes.</string>
     <string name="action_skip">Saltar</string>
     <string name="action_next">Siguiente</string>
-    <string name="action_get_started">Empezar</string>
+    <string name="action_got_it">Entendido</string>
 </resources>

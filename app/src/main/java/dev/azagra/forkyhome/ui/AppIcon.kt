@@ -222,7 +222,7 @@ fun AppIcon(
                 Image(
                     bitmap = bitmap,
                     contentDescription = app.label,
-                    filterQuality = FilterQuality.Medium,
+                    filterQuality = FilterQuality.Low,
                     modifier = Modifier.size(iconSize),
                 )
                 if (badge > 0) {
@@ -466,7 +466,7 @@ fun FolderIcon(
                             Image(
                                 bitmap = if (useHomeIcon) a.homeIcon else a.icon,
                                 contentDescription = null,
-                                filterQuality = FilterQuality.Medium,
+                                filterQuality = FilterQuality.Low,
                                 modifier = Modifier.size(miniSize),
                             )
                         }
@@ -477,7 +477,7 @@ fun FolderIcon(
                                 Image(
                                     bitmap = if (useHomeIcon) a.homeIcon else a.icon,
                                     contentDescription = null,
-                                    filterQuality = FilterQuality.Medium,
+                                    filterQuality = FilterQuality.Low,
                                     modifier = Modifier.size(miniSize),
                                 )
                             }
