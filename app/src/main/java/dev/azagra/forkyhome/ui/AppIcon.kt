@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import dev.azagra.forkyhome.data.AppInfo
 import dev.azagra.forkyhome.data.IconShape
@@ -215,115 +216,196 @@ fun AppIcon(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Column(
-            Modifier.padding(6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box {
-                Image(
-                    bitmap = bitmap,
-                    contentDescription = app.label,
-                    filterQuality = FilterQuality.Low,
-                    modifier = Modifier.size(iconSize),
-                )
-                if (badge > 0) {
-                    Badge(
-                        modifier = Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-2).dp),
-                        containerColor = badgeContainerColor,
-                        contentColor = badgeContentColor,
-                    ) { Text(if (badge > 99) "99+" else badge.toString()) }
-                }
+        val resolvedLabelStyle = remember(labelStyle, labelColor) { labelStyle.copy(color = labelColor) }
+        AppIconContent(
+            bitmap = bitmap,
+            label = app.label,
+            badge = badge,
+            showLabel = showLabel,
+            iconSize = iconSize,
+            resolvedLabelStyle = resolvedLabelStyle,
+            badgeContainerColor = badgeContainerColor,
+            badgeContentColor = badgeContentColor,
+        )
+        if (menu) {
+            AppActionsMenu(
+                appKey = app.key,
+                actionsProvider = ref.actionsProvider,
+                onDismiss = { menu = false },
+            )
+        }
+    }
+}
+
+@Composable
+fun DrawerAppIcon(
+    app: AppInfo,
+    badge: Int,
+    showLabel: Boolean,
+    iconSize: Dp,
+    resolvedLabelStyle: TextStyle,
+    badgeContainerColor: Color,
+    badgeContentColor: Color,
+    pressedKey: () -> String?,
+    longPressedKey: () -> String?,
+    draggedKey: () -> String?,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.graphicsLayer {
+            val k = app.key
+            val dragged = draggedKey() == k
+            alpha = if (dragged) 0.18f else 1f
+            val s = when {
+                dragged -> 0.85f
+                longPressedKey() == k -> 1.12f
+                pressedKey() == k -> 0.93f
+                else -> 1f
             }
-            if (showLabel) {
-                val resolvedLabelStyle = remember(labelStyle, labelColor) { labelStyle.copy(color = labelColor) }
-                BasicText(
-                    text = app.label,
-                    style = resolvedLabelStyle,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
+            scaleX = s
+            scaleY = s
+        },
+        contentAlignment = Alignment.Center,
+    ) {
+        AppIconContent(
+            bitmap = app.icon,
+            label = app.label,
+            badge = badge,
+            showLabel = showLabel,
+            iconSize = iconSize,
+            resolvedLabelStyle = resolvedLabelStyle,
+            badgeContainerColor = badgeContainerColor,
+            badgeContentColor = badgeContentColor,
+        )
+    }
+}
+
+@Composable
+private fun AppIconContent(
+    bitmap: androidx.compose.ui.graphics.ImageBitmap,
+    label: String,
+    badge: Int,
+    showLabel: Boolean,
+    iconSize: Dp,
+    resolvedLabelStyle: TextStyle,
+    badgeContainerColor: Color,
+    badgeContentColor: Color,
+) {
+    Column(
+        Modifier.padding(6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box {
+            Image(
+                bitmap = bitmap,
+                contentDescription = label,
+                filterQuality = FilterQuality.Low,
+                modifier = Modifier.size(iconSize),
+            )
+            if (badge > 0) {
+                Badge(
+                    modifier = Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-2).dp),
+                    containerColor = badgeContainerColor,
+                    contentColor = badgeContentColor,
+                ) { Text(if (badge > 99) "99+" else badge.toString()) }
             }
         }
-        if (menu) {
-            val actions by produceState<List<MenuAction>?>(null, app.key) {
-                value = withContext(Dispatchers.IO) { ref.actionsProvider() }
-            }
-            val loadedActions = actions
-            if (loadedActions != null) {
-                val shortcuts = remember(loadedActions) { loadedActions.filter { it.isShortcut } }
-                val standardActions = remember(loadedActions) { loadedActions.filter { !it.isShortcut } }
-                DropdownMenu(
-                    expanded = true,
-                    onDismissRequest = { menu = false },
-                    shape = PopupMenuShape,
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    tonalElevation = 6.dp,
-                    shadowElevation = 8.dp,
-                ) {
-                shortcuts.forEach { a ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                a.label,
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+        if (showLabel) {
+            BasicText(
+                text = label,
+                style = resolvedLabelStyle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
+@Composable
+fun AppActionsMenu(
+    appKey: String,
+    actionsProvider: () -> List<MenuAction>,
+    onDismiss: () -> Unit,
+    offset: DpOffset = DpOffset.Zero,
+) {
+    val actions by produceState<List<MenuAction>?>(null, appKey) {
+        value = withContext(Dispatchers.IO) { actionsProvider() }
+    }
+    val loadedActions = actions
+    if (loadedActions != null) {
+        val shortcuts = remember(loadedActions) { loadedActions.filter { it.isShortcut } }
+        val standardActions = remember(loadedActions) { loadedActions.filter { !it.isShortcut } }
+        DropdownMenu(
+            expanded = true,
+            onDismissRequest = onDismiss,
+            offset = offset,
+            shape = PopupMenuShape,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 6.dp,
+            shadowElevation = 8.dp,
+        ) {
+            shortcuts.forEach { a ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            a.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    leadingIcon = a.icon?.let { ic ->
+                        {
+                            Icon(
+                                imageVector = ic,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
                             )
-                        },
-                        leadingIcon = a.icon?.let { ic ->
-                            {
-                                Icon(
-                                    imageVector = ic,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.secondary,
-                                )
-                            }
-                        },
-                        colors = MenuDefaults.itemColors(
-                            textColor = MaterialTheme.colorScheme.onSurface,
-                            leadingIconColor = MaterialTheme.colorScheme.secondary,
-                        ),
-                        onClick = {
-                            menu = false
-                            a.onClick()
-                        },
-                    )
-                }
-                if (shortcuts.isNotEmpty() && standardActions.isNotEmpty()) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                    )
-                }
-                standardActions.forEach { a ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                a.label,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        },
-                        leadingIcon = a.icon?.let { ic ->
-                            {
-                                Icon(
-                                    imageVector = ic,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                        },
-                        colors = MenuDefaults.itemColors(
-                            textColor = MaterialTheme.colorScheme.onSurface,
-                            leadingIconColor = MaterialTheme.colorScheme.primary,
-                        ),
-                        onClick = {
-                            menu = false
-                            a.onClick()
-                        },
-                    )
-                }
+                        }
+                    },
+                    colors = MenuDefaults.itemColors(
+                        textColor = MaterialTheme.colorScheme.onSurface,
+                        leadingIconColor = MaterialTheme.colorScheme.secondary,
+                    ),
+                    onClick = {
+                        onDismiss()
+                        a.onClick()
+                    },
+                )
             }
+            if (shortcuts.isNotEmpty() && standardActions.isNotEmpty()) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                )
+            }
+            standardActions.forEach { a ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            a.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    },
+                    leadingIcon = a.icon?.let { ic ->
+                        {
+                            Icon(
+                                imageVector = ic,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    },
+                    colors = MenuDefaults.itemColors(
+                        textColor = MaterialTheme.colorScheme.onSurface,
+                        leadingIconColor = MaterialTheme.colorScheme.primary,
+                    ),
+                    onClick = {
+                        onDismiss()
+                        a.onClick()
+                    },
+                )
             }
         }
     }

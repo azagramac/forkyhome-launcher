@@ -31,21 +31,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            window.frameRateBoostOnTouchEnabled = true
-            window.decorView.setRequestedFrameRate(View.REQUESTED_FRAME_RATE_CATEGORY_HIGH)
-        }
-        display?.let { d ->
-            val cur = d.mode
-            d.supportedModes
-                .filter { it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight }
-                .maxByOrNull { it.refreshRate }
-                ?.let { highMode ->
-                    if (highMode.modeId != cur.modeId) {
-                        window.attributes = window.attributes.apply { preferredDisplayModeId = highMode.modeId }
-                    }
-                }
-        }
+        applyHighRefreshRate()
         container = (application as LauncherApp).container
 
         widgets = WidgetController(this) { id, info ->
@@ -84,7 +70,30 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        applyHighRefreshRate()
         syncLauncherDrawerIconVisibility()
+    }
+
+    private fun applyHighRefreshRate() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            if (!window.frameRateBoostOnTouchEnabled) {
+                window.frameRateBoostOnTouchEnabled = true
+            }
+            window.decorView.setRequestedFrameRate(View.REQUESTED_FRAME_RATE_CATEGORY_HIGH)
+        }
+        display?.let { d ->
+            val cur = d.mode
+            d.supportedModes
+                .filter { it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight }
+                .maxByOrNull { it.refreshRate }
+                ?.let { highMode ->
+                    val attrs = window.attributes
+                    if (highMode.modeId != cur.modeId && attrs.preferredDisplayModeId != highMode.modeId) {
+                        attrs.preferredDisplayModeId = highMode.modeId
+                        window.attributes = attrs
+                    }
+                }
+        }
     }
 
     private fun syncLauncherDrawerIconVisibility() {

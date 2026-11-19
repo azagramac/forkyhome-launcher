@@ -4,14 +4,18 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,13 +30,12 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -46,13 +49,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import dev.azagra.forkyhome.R
@@ -155,7 +166,10 @@ fun AppDrawer(
         }
     }
 
-    val navBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val density = LocalDensity.current
+    val haptics = LocalHapticFeedback.current
+    val navBottomPx = WindowInsets.navigationBars.getBottom(density)
+    val navBottomPadding = with(density) { navBottomPx.toDp() }
     val gridPadding = remember(navBottomPadding) {
         PaddingValues(start = 10.dp, end = 10.dp, top = 4.dp, bottom = navBottomPadding + 20.dp)
     }
@@ -191,79 +205,187 @@ fun AppDrawer(
                 .background(on.copy(alpha = 0.3f))
                 .align(Alignment.CenterHorizontally)
         )
-        TextField(
-            value = query,
-            onValueChange = { query = it },
-            singleLine = true,
-            placeholder = { Text(stringResource(R.string.search_apps), color = on.copy(alpha = 0.65f)) },
-            leadingIcon = { Icon(Icons.Default.Search, null, tint = searchIconTint) },
-            shape = SearchBarShape,
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = searchBg,
-                unfocusedContainerColor = searchBg,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                focusedTextColor = on,
-                unfocusedTextColor = on,
-                cursorColor = searchIconTint,
-            ),
+        val searchPlaceholder = stringResource(R.string.search_apps)
+        val searchTextStyle = MaterialTheme.typography.bodyLarge.copy(color = on)
+        val placeholderStyle = MaterialTheme.typography.bodyLarge.copy(color = on.copy(alpha = 0.65f))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 10.dp)
+                .height(52.dp)
+                .clip(SearchBarShape)
+                .background(searchBg)
                 .draggable(
                     enabled = !isHoldingOrDragging,
                     state = rememberDraggableState { dy -> drawer.drag(-dy / dragSpanPx) },
                     orientation = Orientation.Vertical,
                     onDragStopped = { v -> drawer.settle(-v / dragSpanPx) },
-                ),
-        )
+                )
+                .padding(horizontal = 16.dp),
+        ) {
+            Icon(Icons.Default.Search, null, tint = searchIconTint)
+            Spacer(Modifier.width(12.dp))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                if (query.isEmpty()) {
+                    BasicText(
+                        text = searchPlaceholder,
+                        style = placeholderStyle,
+                        maxLines = 1,
+                    )
+                }
+                BasicTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    textStyle = searchTextStyle,
+                    cursorBrush = SolidColor(searchIconTint),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
         val drawerIconSize = remember(s.columns, s.drawerIconScale) {
             resolveIconSizeDp(s.columns, s.drawerIconScale).dp
         }
         val drawerLabelStyle = MaterialTheme.typography.labelSmall
+        val resolvedLabelStyle = remember(drawerLabelStyle, on) { drawerLabelStyle.copy(color = on) }
         val badgeBg = MaterialTheme.colorScheme.primary
         val badgeFg = MaterialTheme.colorScheme.onPrimary
-        LazyVerticalGrid(
-            state = gridState,
-            columns = GridCells.Fixed(s.columns),
-            userScrollEnabled = !isHoldingOrDragging,
-            modifier = Modifier.weight(1f),
-            contentPadding = gridPadding,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            items(
-                items = filtered,
-                key = { it.key },
-                contentType = { "drawer_app" },
-            ) { app ->
-                val itemActionsProvider = remember(app.key) { { actionsFor(app) } }
-                val itemOnClick = remember(app.key) { { onLaunch(app) } }
-                val itemOnDragStart = remember(app.key) {
-                    { startRootPos: Offset ->
-                        focusManager.clearFocus()
-                        onStartAppDrag(app, startRootPos)
-                    }
+
+        var pressedKey by remember { mutableStateOf<String?>(null) }
+        var longPressedKey by remember { mutableStateOf<String?>(null) }
+        var menuTarget by remember { mutableStateOf<Pair<AppInfo, DpOffset>?>(null) }
+        var gridCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
+        val currentFiltered by rememberUpdatedState(filtered)
+        val currentEnableDrag by rememberUpdatedState(!s.lockDesktop)
+        val currentOnLaunch by rememberUpdatedState(onLaunch)
+        val currentOnItemHoldChange by rememberUpdatedState(onItemHoldChange)
+        val currentOnStartAppDrag by rememberUpdatedState(onStartAppDrag)
+        val currentOnDragApp by rememberUpdatedState(onDragApp)
+        val currentOnEndAppDrag by rememberUpdatedState(onEndAppDrag)
+        val currentDraggedKey by rememberUpdatedState(draggedDrawerAppKey)
+
+        val pressedKeyReader = remember { { pressedKey } }
+        val longPressedKeyReader = remember { { longPressedKey } }
+        val draggedKeyReader = remember { { currentDraggedKey } }
+
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            LazyVerticalGrid(
+                state = gridState,
+                columns = GridCells.Fixed(s.columns),
+                userScrollEnabled = !isHoldingOrDragging,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .onPlaced { gridCoords = it }
+                    .pointerInput(gridState) {
+                        val dragThresholdPx = 4.dp.toPx()
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val hit = gridState.layoutInfo.visibleItemsInfo.firstOrNull { info ->
+                                val ox = info.offset.x.toFloat()
+                                val oy = info.offset.y.toFloat()
+                                down.position.x >= ox && down.position.x <= ox + info.size.width &&
+                                    down.position.y >= oy && down.position.y <= oy + info.size.height
+                            } ?: return@awaitEachGesture
+                            val app = currentFiltered.getOrNull(hit.index) ?: return@awaitEachGesture
+                            pressedKey = app.key
+                            val longPress = try {
+                                awaitLongPressOrCancellation(down.id)
+                            } finally {
+                                pressedKey = null
+                            }
+                            if (longPress == null) {
+                                val up = currentEvent.changes.firstOrNull { it.id == down.id }
+                                if (up != null && !up.pressed && !up.isConsumed &&
+                                    (up.position - down.position).getDistance() <= viewConfiguration.touchSlop
+                                ) {
+                                    up.consume()
+                                    currentOnLaunch(app)
+                                }
+                            } else {
+                                longPress.consume()
+                                currentEvent.changes.forEach { it.consume() }
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (!currentEnableDrag) {
+                                    val menuOff = with(density) {
+                                        DpOffset(hit.offset.x.toDp(), (hit.offset.y + hit.size.height / 2).toDp())
+                                    }
+                                    menuTarget = app to menuOff
+                                } else {
+                                    longPressedKey = app.key
+                                    currentOnItemHoldChange(true)
+                                    var dragging = false
+                                    val startPos = longPress.position
+                                    try {
+                                        while (true) {
+                                            val event = awaitPointerEvent()
+                                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                            if (!change.pressed) {
+                                                change.consume()
+                                                break
+                                            }
+                                            if (!dragging && (change.position - startPos).getDistance() > dragThresholdPx) {
+                                                dragging = true
+                                                longPressedKey = null
+                                                focusManager.clearFocus()
+                                                val c = gridCoords
+                                                val rootPos = if (c != null && c.isAttached) c.localToRoot(change.position) else change.position
+                                                currentOnStartAppDrag(app, rootPos)
+                                                currentOnDragApp(rootPos)
+                                            } else if (dragging) {
+                                                val c = gridCoords
+                                                val rootPos = if (c != null && c.isAttached) c.localToRoot(change.position) else change.position
+                                                currentOnDragApp(rootPos)
+                                            }
+                                            change.consume()
+                                        }
+                                    } finally {
+                                        longPressedKey = null
+                                        currentOnItemHoldChange(false)
+                                    }
+                                    if (dragging) {
+                                        currentOnEndAppDrag()
+                                    } else {
+                                        val menuOff = with(density) {
+                                            DpOffset(hit.offset.x.toDp(), (hit.offset.y + hit.size.height / 2).toDp())
+                                        }
+                                        menuTarget = app to menuOff
+                                    }
+                                }
+                            }
+                        }
+                    },
+                contentPadding = gridPadding,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                items(
+                    items = filtered,
+                    key = { it.key },
+                    contentType = { "drawer_app" },
+                ) { app ->
+                    DrawerAppIcon(
+                        app = app,
+                        badge = if (s.badgeNumbers) counts[app.pkg] ?: 0 else 0,
+                        showLabel = s.showLabels,
+                        iconSize = drawerIconSize,
+                        resolvedLabelStyle = resolvedLabelStyle,
+                        badgeContainerColor = badgeBg,
+                        badgeContentColor = badgeFg,
+                        pressedKey = pressedKeyReader,
+                        longPressedKey = longPressedKeyReader,
+                        draggedKey = draggedKeyReader,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
-                AppIcon(
-                    app = app,
-                    badge = if (s.badgeNumbers) counts[app.pkg] ?: 0 else 0,
-                    showLabel = s.showLabels,
-                    labelColor = on,
-                    iconSize = drawerIconSize,
-                    actionsProvider = itemActionsProvider,
-                    onClick = itemOnClick,
-                    modifier = Modifier.fillMaxWidth(),
-                    useHomeIcon = false,
-                    iconShape = s.iconShape,
-                    enableDrag = !s.lockDesktop,
-                    isBeingDragged = draggedDrawerAppKey == app.key,
-                    onPressHoldChange = onItemHoldChange,
-                    onDragStart = itemOnDragStart,
-                    onDrag = onDragApp,
-                    onDragEnd = onEndAppDrag,
-                    labelStyle = drawerLabelStyle,
-                    badgeContainerColor = badgeBg,
-                    badgeContentColor = badgeFg,
+            }
+            menuTarget?.let { (menuApp, menuOffset) ->
+                val actionsProvider = remember(menuApp.key) { { actionsFor(menuApp) } }
+                AppActionsMenu(
+                    appKey = menuApp.key,
+                    actionsProvider = actionsProvider,
+                    onDismiss = { menuTarget = null },
+                    offset = menuOffset,
                 )
             }
         }

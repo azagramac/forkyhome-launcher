@@ -3,6 +3,7 @@
 HSPLdev/azagra/forkyhome/LauncherApp;->onCreate()V
 HSPLdev/azagra/forkyhome/MainActivity;->onCreate(Landroid/os/Bundle;)V
 HSPLdev/azagra/forkyhome/MainActivity;->onStart()V
+HSPLdev/azagra/forkyhome/MainActivity;->onResume()V
 HSPLdev/azagra/forkyhome/data/AppRepository;->**(**)**
 HSPLdev/azagra/forkyhome/data/IconPacks;->**(**)**
 HSPLdev/azagra/forkyhome/data/SettingsStore;->**(**)**
@@ -19,4 +20,6 @@ HSPLdev/azagra/forkyhome/ui/WidgetsKt;->**(**)**
 # Compose Foundation & Runtime hot paths (LazyVerticalGrid, HorizontalPager, GraphicsLayer)
 HSPLandroidx/compose/foundation/lazy/grid/**;->**(**)**
 HSPLandroidx/compose/foundation/pager/**;->**(**)**
+HSPLandroidx/compose/foundation/gestures/**;->**(**)**
+HSPLandroidx/compose/ui/input/pointer/**;->**(**)**
 HSPLandroidx/compose/ui/graphics/**;->**(**)**
