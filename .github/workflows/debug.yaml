@@ -239,8 +239,8 @@ jobs:
                   issues.add(int(m))
 
           header = (
-              f"🧪 <b>ForkyHome Testing</b>\n"
-              f"🏷 <b>Versión:</b> <code>v{version}</code> (Build <code>#{run_num}</code>)\n"
+              f"🧪 <b>[DEBUG] ForkyHome Testing</b>\n"
+              f"🏷 <b>Versión:</b> <code>v{version}</code> · <b>Build:</b> <code>#{run_num}</code>\n"
               f"🌿 <b>Rama:</b> <code>{branch}</code>\n"
               f"📦 <b>APK:</b> <code>{html.escape(apk_name)}</code> ({apk_size})\n"
               f"🔒 <b>SHA-256:</b> <code>{apk_sha256[:16]}...</code>\n"

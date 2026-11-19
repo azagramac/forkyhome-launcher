@@ -199,7 +199,7 @@ jobs:
       - name: 📲 Send Release APK to Telegram
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_RELEASE }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_DEBUG }}
           REPO_URL: https://github.com/${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
@@ -228,57 +228,37 @@ jobs:
           tag = os.environ["TAG"]
           run_num = os.environ["RUN_NUM"]
           pr_num = os.environ["PR_NUMBER"]
-          pr_title = os.environ.get("PR_TITLE", "")
-          pr_body = os.environ.get("PR_BODY", "")
+          pr_title = os.environ.get("PR_TITLE", "").strip()
+          pr_body = os.environ.get("PR_BODY", "").strip()
           base_sha = os.environ["BASE_SHA"]
           head_sha = os.environ["HEAD_SHA"]
 
-          cmd = ["git", "log", f"{base_sha}..{head_sha}", "--no-merges", "--pretty=format:%H|%h|%s|%b%x1e"]
+          cmd = ["git", "log", f"{base_sha}..{head_sha}", "--no-merges", "--pretty=format:%s%x1e"]
           raw = subprocess.check_output(cmd, text=True, errors="replace")
+          subjects = [s.strip() for s in raw.split("\x1e") if s.strip()]
 
-          commit_lines = []
           issues = set()
-          for m in re.findall(r"#(\d+)", f"{pr_title}\n{pr_body}"):
+          for m in re.findall(r"#(\d+)", f"{pr_title}\n{pr_body}\n" + "\n".join(subjects)):
               issues.add(int(m))
 
-          for entry in raw.split("\x1e"):
-              entry = entry.strip()
-              if not entry:
-                  continue
-              parts = entry.split("|", 3)
-              full_sha, short_sha = parts[0], parts[1]
-              subj = html.escape(parts[2] if len(parts) > 2 else "")
-              body = parts[3] if len(parts) > 3 else ""
-              if len(subj) > 65:
-                  subj = subj[:62] + "..."
-              commit_lines.append(f"• <a href=\"{repo_url}/commit/{full_sha}\">{short_sha}</a> {subj}")
-              for m in re.findall(r"#(\d+)", f"{parts[2] if len(parts) > 2 else ''}\n{body}"):
-                  issues.add(int(m))
+          summary_text = html.escape(pr_title) if pr_title else f"{len(subjects)} cambios incluidos"
+          if len(summary_text) > 160:
+              summary_text = summary_text[:157] + "..."
 
-          header = (
-              f"🚀 <b>ForkyHome {html.escape(tag)}</b>\n"
-              f"🏷 <b>Versión:</b> <code>v{html.escape(version)}</code> (Build <code>#{run_num}</code>)\n"
-              f"🔀 <b>PR:</b> <a href=\"{repo_url}/pull/{pr_num}\">#{pr_num}</a>\n"
+          caption = (
+              f"🚀 <b>[RELEASE] ForkyHome {html.escape(tag)}</b>\n"
+              f"🏷 <b>Versión:</b> <code>v{html.escape(version)}</code> · <b>Build:</b> <code>#{run_num}</code>\n"
               f"📦 <b>APK:</b> <code>{html.escape(apk_name)}</code> ({apk_size})\n"
               f"🔒 <b>SHA-256:</b> <code>{apk_sha256[:16]}...</code>\n"
-              f"🔗 <a href=\"{repo_url}/releases/tag/{html.escape(tag)}\">Ver Release en GitHub</a>"
+              f"🔀 <b>PR:</b> <a href=\"{repo_url}/pull/{pr_num}\">#{pr_num}</a>\n"
+              f"🔗 <a href=\"{repo_url}/releases/tag/{html.escape(tag)}\">Ver Release en GitHub</a>\n\n"
+              f"📝 <b>Resumen:</b> {summary_text} ({len(subjects)} commits)"
           )
-
-          issues_block = ""
           if issues:
               links = ", ".join(f"<a href=\"{repo_url}/issues/{n}\">#{n}</a>" for n in sorted(issues))
-              issues_block = f"\n\n📋 <b>Issues:</b> {links}"
+              caption += f"\n📋 <b>Issues:</b> {links}"
 
-          commits_block = ""
-          if commit_lines:
-              commits_block = "\n\n📝 <b>Commits (PR):</b>\n"
-              for line in commit_lines[:8]:
-                  if len(header) + len(issues_block) + len(commits_block) + len(line) + 20 > 1000:
-                      commits_block += "• ..."
-                      break
-                  commits_block += line + "\n"
-
-          print((header + issues_block + commits_block).strip()[:1024])
+          print(caption.strip()[:1024])
           EOF
 
           RESP_FILE="$RUNNER_TEMP/tg_resp.json"

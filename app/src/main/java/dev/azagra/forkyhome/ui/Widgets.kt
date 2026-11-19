@@ -1,8 +1,10 @@
 package dev.azagra.forkyhome.ui
 
 import android.appwidget.AppWidgetProviderInfo
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.util.SizeF
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -16,11 +18,14 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,14 +37,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,6 +71,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -523,6 +534,24 @@ private fun ResizeHandlePill(
     ) {}
 }
 
+private data class WidgetAppGroup(
+    val pkg: String,
+    val appLabel: String,
+    val widgets: List<Pair<AppWidgetProviderInfo, String>>,
+)
+
+private fun Drawable.toAspectFitBitmap(maxSidePx: Int = 280): ImageBitmap {
+    val iw = intrinsicWidth
+    val ih = intrinsicHeight
+    if (iw <= 0 || ih <= 0) {
+        return toBitmap(128, 128).asImageBitmap()
+    }
+    val scale = (maxSidePx.toFloat() / maxOf(iw, ih)).coerceAtMost(2f)
+    val w = (iw * scale).roundToInt().coerceAtLeast(1)
+    val h = (ih * scale).roundToInt().coerceAtLeast(1)
+    return toBitmap(w, h).asImageBitmap()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WidgetPicker(
@@ -531,15 +560,44 @@ fun WidgetPicker(
     onDismiss: () -> Unit,
 ) {
     val ctx = LocalContext.current
-    val entries by produceState<List<Pair<AppWidgetProviderInfo, String>>>(emptyList(), controller) {
+    val groups by produceState<List<WidgetAppGroup>>(emptyList(), controller) {
         value = withContext(Dispatchers.IO) {
             val pm = ctx.packageManager
             controller.manager.installedProviders
                 .filter { it.widgetCategory and AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN != 0 }
-                .map { it to it.loadLabel(pm) }
-                .sortedBy { it.second.lowercase() }
+                .groupBy { it.provider.packageName }
+                .map { (pkg, list) ->
+                    val appLabel = runCatching {
+                        val ai = pm.getApplicationInfo(pkg, 0)
+                        pm.getApplicationLabel(ai).toString()
+                    }.getOrDefault(pkg)
+                    val sortedWidgets = list
+                        .map { it to it.loadLabel(pm) }
+                        .sortedBy { it.second.lowercase() }
+                    WidgetAppGroup(pkg, appLabel, sortedWidgets)
+                }
+                .sortedBy { it.appLabel.lowercase() }
         }
     }
+    var query by remember { mutableStateOf("") }
+    var expandedPkg by remember { mutableStateOf<String?>(null) }
+
+    val filteredGroups = remember(groups, query) {
+        val q = query.trim()
+        if (q.isEmpty()) {
+            groups
+        } else {
+            groups.mapNotNull { g ->
+                if (g.appLabel.contains(q, ignoreCase = true)) {
+                    g
+                } else {
+                    val matching = g.widgets.filter { it.second.contains(q, ignoreCase = true) }
+                    if (matching.isNotEmpty()) g.copy(widgets = matching) else null
+                }
+            }
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         shape = WidgetSheetShape,
@@ -550,43 +608,141 @@ fun WidgetPicker(
             text = stringResource(R.string.menu_widgets),
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp),
+        )
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            singleLine = true,
+            placeholder = { Text(stringResource(R.string.search_apps)) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
         )
         LazyColumn(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(entries, key = { it.first.provider.flattenToString() }) { (info, label) ->
-                val densityDpi = ctx.resources.displayMetrics.densityDpi
-                val icon by produceState<ImageBitmap?>(null, info.provider) {
+            items(filteredGroups, key = { it.pkg }) { group ->
+                val isExpanded = query.isNotBlank() || expandedPkg == group.pkg
+                val appIcon by produceState<ImageBitmap?>(null, group.pkg) {
                     value = withContext(Dispatchers.IO) {
                         runCatching {
-                            val dr = info.loadPreviewImage(ctx, densityDpi) ?: info.loadIcon(ctx, densityDpi)
-                            dr?.toBitmap(128, 128)?.asImageBitmap()
+                            ctx.packageManager.getApplicationIcon(group.pkg).toBitmap(96, 96).asImageBitmap()
                         }.getOrNull()
                     }
                 }
-                val spanX = if (info.targetCellWidth > 0) info.targetCellWidth else ((info.minWidth / ctx.resources.displayMetrics.density + 30) / 70).toInt().coerceAtLeast(1)
-                val spanY = if (info.targetCellHeight > 0) info.targetCellHeight else ((info.minHeight / ctx.resources.displayMetrics.density + 30) / 70).toInt().coerceAtLeast(1)
                 Surface(
                     shape = WidgetItemShape,
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier.fillMaxWidth().clip(WidgetItemShape).clickable { onPick(info) },
+                    modifier = Modifier.fillMaxWidth().clip(WidgetItemShape),
                 ) {
-                    ListItem(
-                        colors = ListItemDefaults.colors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            headlineColor = MaterialTheme.colorScheme.onSurface,
-                            supportingColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
-                        headlineContent = { Text(label, style = MaterialTheme.typography.bodyLarge) },
-                        supportingContent = {
-                            Text("$spanX × $spanY")
-                        },
-                        leadingContent = {
-                            icon?.let { Image(it, null, Modifier.size(44.dp)) }
-                        },
-                    )
+                    Column(Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    expandedPkg = if (expandedPkg == group.pkg) null else group.pkg
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            appIcon?.let {
+                                Image(it, contentDescription = null, modifier = Modifier.size(36.dp))
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = group.appLabel,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = "${group.widgets.size}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Icon(
+                                imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                        AnimatedVisibility(visible = isExpanded) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                group.widgets.forEach { (info, label) ->
+                                    val densityDpi = ctx.resources.displayMetrics.densityDpi
+                                    val preview by produceState<ImageBitmap?>(null, info.provider) {
+                                        value = withContext(Dispatchers.IO) {
+                                            runCatching {
+                                                val dr = info.loadPreviewImage(ctx, densityDpi)
+                                                    ?: info.loadIcon(ctx, densityDpi)
+                                                    ?: ctx.packageManager.getApplicationIcon(group.pkg)
+                                                dr.toAspectFitBitmap(280)
+                                            }.getOrNull()
+                                        }
+                                    }
+                                    val spanX = if (info.targetCellWidth > 0) info.targetCellWidth else ((info.minWidth / ctx.resources.displayMetrics.density + 30) / 70).toInt().coerceAtLeast(1)
+                                    val spanY = if (info.targetCellHeight > 0) info.targetCellHeight else ((info.minHeight / ctx.resources.displayMetrics.density + 30) / 70).toInt().coerceAtLeast(1)
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .clickable { onPick(info) }
+                                            .padding(horizontal = 8.dp, vertical = 10.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                            )
+                                            Text(
+                                                text = "$spanX × $spanY",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                        preview?.let { bmp ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .heightIn(min = 56.dp, max = 140.dp),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Image(
+                                                    bitmap = bmp,
+                                                    contentDescription = label,
+                                                    contentScale = ContentScale.Fit,
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .heightIn(max = 132.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

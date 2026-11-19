@@ -166,19 +166,14 @@ fun AppDrawer(
                 val eased = 1f - (1f - p) * (1f - p)
                 if (isDraggingFromDrawer) {
                     translationY = 0f
-                    scaleX = 1f
-                    scaleY = 1f
                     alpha = (p * 1.15f).coerceIn(0f, 1f)
+                } else if (p <= 0.001f) {
+                    translationY = size.height
+                    alpha = 0f
                 } else {
-                    translationY = if (p <= 0.001f) size.height else (1f - eased) * size.height * 0.58f
-                    val sScale = 0.94f + 0.06f * eased
-                    scaleX = sScale
-                    scaleY = sScale
-                    transformOrigin = DrawerCenterOrigin
-                    alpha = (p * 1.35f).coerceIn(0f, 1f)
+                    translationY = (1f - eased) * size.height
+                    alpha = 1f
                 }
-                shape = DrawerTopShape
-                clip = true
             }
             .background(bg)
             .nestedScroll(connection)
@@ -223,6 +218,9 @@ fun AppDrawer(
         val drawerIconSize = remember(s.columns, s.drawerIconScale) {
             resolveIconSizeDp(s.columns, s.drawerIconScale).dp
         }
+        val drawerLabelStyle = MaterialTheme.typography.labelSmall
+        val badgeBg = MaterialTheme.colorScheme.primary
+        val badgeFg = MaterialTheme.colorScheme.onPrimary
         LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Fixed(s.columns),
@@ -236,35 +234,34 @@ fun AppDrawer(
                 key = { it.key },
                 contentType = { "drawer_app" },
             ) { app ->
+                val itemActionsProvider = remember(app.key) { { actionsFor(app) } }
+                val itemOnClick = remember(app.key) { { onLaunch(app) } }
+                val itemOnDragStart = remember(app.key) {
+                    { startRootPos: Offset ->
+                        focusManager.clearFocus()
+                        onStartAppDrag(app, startRootPos)
+                    }
+                }
                 AppIcon(
                     app = app,
                     badge = if (s.badgeNumbers) counts[app.pkg] ?: 0 else 0,
                     showLabel = s.showLabels,
                     labelColor = on,
                     iconSize = drawerIconSize,
-                    actionsProvider = { actionsFor(app) },
-                    onClick = { onLaunch(app) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateItem(
-                            fadeInSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                            placementSpec = spring(
-                                dampingRatio = Spring.DampingRatioNoBouncy,
-                                stiffness = Spring.StiffnessMediumLow,
-                            ),
-                            fadeOutSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                        ),
+                    actionsProvider = itemActionsProvider,
+                    onClick = itemOnClick,
+                    modifier = Modifier.fillMaxWidth(),
                     useHomeIcon = false,
                     iconShape = s.iconShape,
                     enableDrag = !s.lockDesktop,
                     isBeingDragged = draggedDrawerAppKey == app.key,
                     onPressHoldChange = onItemHoldChange,
-                    onDragStart = { startRootPos ->
-                        focusManager.clearFocus()
-                        onStartAppDrag(app, startRootPos)
-                    },
+                    onDragStart = itemOnDragStart,
                     onDrag = onDragApp,
                     onDragEnd = onEndAppDrag,
+                    labelStyle = drawerLabelStyle,
+                    badgeContainerColor = badgeBg,
+                    badgeContentColor = badgeFg,
                 )
             }
         }

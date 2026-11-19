@@ -371,6 +371,8 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
 
     var gridBoundsInRoot by remember { mutableStateOf(Rect.Zero) }
     var dockBoundsInRoot by remember { mutableStateOf(Rect.Zero) }
+    var folderCardBoundsInRoot by remember { mutableStateOf(Rect.Zero) }
+    var folderGridBoundsInRoot by remember { mutableStateOf(Rect.Zero) }
     var isHoldingItem by remember { mutableStateOf(false) }
     var dragSession by remember { mutableStateOf<DragSession?>(null) }
     var dragPosInRoot by remember { mutableStateOf(Offset.Zero) }
@@ -544,7 +546,41 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
 
         dragSession = null
         isHoldingItem = false
-        if (session.source is DragSource.Folder) {
+        val folderSrc = session.source as? DragSource.Folder
+        if (folderSrc != null &&
+            folderCardBoundsInRoot.width > 0f &&
+            folderCardBoundsInRoot.contains(dropPos) &&
+            folderGridBoundsInRoot.width > 0f &&
+            folderGridBoundsInRoot.height > 0f
+        ) {
+            if (latestSettings.lockDesktop) {
+                toast(ctx.getString(R.string.toast_desktop_locked))
+                return
+            }
+            edit { st ->
+                val folderItem = st.home.firstOrNull { it.id == folderSrc.folderId && it.kind == ItemKind.FOLDER }
+                    ?: return@edit st
+                val payload = FolderPayload.decode(folderItem.data)
+                val visibleApps = payload.apps.filter { it in appMap }
+                val totalCount = visibleApps.size.coerceAtLeast(1)
+                val rowCount = ((totalCount + 2) / 3).coerceAtLeast(1)
+                val relX = (dropPos.x - folderGridBoundsInRoot.left).coerceIn(0f, (folderGridBoundsInRoot.width - 1f).coerceAtLeast(1f))
+                val relY = (dropPos.y - folderGridBoundsInRoot.top).coerceIn(0f, (folderGridBoundsInRoot.height - 1f).coerceAtLeast(1f))
+                val col = ((relX / folderGridBoundsInRoot.width) * 3).toInt().coerceIn(0, 2)
+                val row = ((relY / folderGridBoundsInRoot.height) * rowCount).toInt().coerceIn(0, rowCount - 1)
+                val targetIndex = (row * 3 + col).coerceIn(0, payload.apps.lastIndex.coerceAtLeast(0))
+                val mutable = payload.apps.toMutableList()
+                val oldIdx = mutable.indexOf(folderSrc.app.key)
+                if (oldIdx != -1) {
+                    mutable.removeAt(oldIdx)
+                    mutable.add(targetIndex.coerceIn(0, mutable.size), folderSrc.app.key)
+                    val updatedFolder = folderItem.copy(data = payload.copy(apps = mutable).encode())
+                    st.copy(home = st.home.map { if (it.id == folderItem.id) updatedFolder else it })
+                } else st
+            }
+            return
+        }
+        if (folderSrc != null) {
             openFolderId = null
         }
 
@@ -849,6 +885,13 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     val isDraggingOrHolding = activeDrag != null || isHoldingItem
     val draggedDrawerAppKey = (activeDrag?.source as? DragSource.Drawer)?.app?.key
     val isDraggingFromFolder = activeDrag?.source is DragSource.Folder
+    val isDraggingOutsideFolder by remember {
+        derivedStateOf {
+            isDraggingFromFolder &&
+                folderCardBoundsInRoot.width > 0f &&
+                !folderCardBoundsInRoot.contains(dragPosInRoot)
+        }
+    }
     val targetDockSlot by remember(dockMarginPx) {
         derivedStateOf {
             val d = dragSession ?: return@derivedStateOf null
@@ -888,11 +931,18 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 .fillMaxSize()
                 .graphicsLayer {
                     val p = drawer.progress.coerceIn(0f, 1f)
-                    alpha = (1f - p * 1.1f).coerceIn(0f, 1f)
-                    val sScale = 1f - 0.06f * p
-                    scaleX = sScale
-                    scaleY = sScale
-                    translationY = -p * 28.dp.toPx()
+                    if (p <= 0.001f) {
+                        alpha = 1f
+                        scaleX = 1f
+                        scaleY = 1f
+                        translationY = 0f
+                    } else {
+                        alpha = (1f - p * 1.1f).coerceIn(0f, 1f)
+                        val sScale = 1f - 0.04f * p
+                        scaleX = sScale
+                        scaleY = sScale
+                        translationY = -p * 24.dp.toPx()
+                    }
                 }
                 .draggable(
                     enabled = !isDraggingOrHolding && openFolderId == null,
@@ -1184,9 +1234,9 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        alpha = if (isDraggingFromFolder) 0f else 1f
+                        alpha = if (isDraggingOutsideFolder) 0f else 1f
                     }
-                    .background(Color.Black.copy(alpha = if (isDraggingFromFolder) 0f else 0.38f))
+                    .background(Color.Black.copy(alpha = if (isDraggingOutsideFolder) 0f else 0.38f))
                     .imePadding()
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -1202,6 +1252,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                     tonalElevation = 8.dp,
                     shadowElevation = 12.dp,
                     modifier = Modifier
+                        .onPlaced { folderCardBoundsInRoot = it.boundsInRoot() }
                         .animateEnterExit(
                             enter = scaleIn(
                                 initialScale = 0.90f,
@@ -1231,6 +1282,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(max = 320.dp)
+                                .onPlaced { folderGridBoundsInRoot = it.boundsInRoot() }
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
@@ -1440,7 +1492,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                     Image(
                         bitmap = activeDrag.previewApp.homeIcon,
                         contentDescription = activeDrag.previewApp.label,
-                        filterQuality = FilterQuality.Medium,
+                        filterQuality = FilterQuality.Low,
                         modifier = Modifier.size(56.dp),
                     )
                 }
@@ -1511,8 +1563,8 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
 
     if (!s.onboardingDone) {
         OnboardingOverlay(
-            s = s,
-            onUpdateSettings = { edit(it) },
+            dockBoundsInRoot = dockBoundsInRoot,
+            gridBoundsInRoot = gridBoundsInRoot,
             onFinish = { edit { it.copy(onboardingDone = true) } },
         )
     }
