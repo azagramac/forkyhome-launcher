@@ -1,8 +1,5 @@
 package dev.azagra.forkyhome.ui
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.produceState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -118,22 +115,6 @@ fun AppIcon(
     val haptics = LocalHapticFeedback.current
     val bitmap = if (useHomeIcon) app.homeIcon else app.icon
 
-    val targetScale = when {
-        isBeingDragged -> 0.85f
-        pressingLong -> 1.12f
-        pressingDown -> 0.93f
-        else -> 1f
-    }
-    val scaleAnim = remember { Animatable(1f) }
-    LaunchedEffect(targetScale) {
-        if (scaleAnim.targetValue != targetScale) {
-            scaleAnim.animateTo(
-                targetValue = targetScale,
-                animationSpec = spring(dampingRatio = 0.72f, stiffness = 550f),
-            )
-        }
-    }
-
     val currentOnClick by rememberUpdatedState(onClick)
     val currentActionsProvider by rememberUpdatedState(actionsProvider)
     val currentOnPressHoldChange by rememberUpdatedState(onPressHoldChange)
@@ -208,7 +189,12 @@ fun AppIcon(
             }
             .graphicsLayer {
                 alpha = if (isBeingDragged) 0.18f else 1f
-                val s = scaleAnim.value
+                val s = when {
+                    isBeingDragged -> 0.85f
+                    pressingLong -> 1.12f
+                    pressingDown -> 0.93f
+                    else -> 1f
+                }
                 scaleX = s
                 scaleY = s
             },
@@ -350,22 +336,6 @@ fun FolderIcon(
     var pressingLong by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
 
-    val targetScale = when {
-        isBeingDragged -> 0.85f
-        pressingLong -> 1.12f
-        pressingDown -> 0.93f
-        else -> 1f
-    }
-    val scaleAnim = remember { Animatable(1f) }
-    LaunchedEffect(targetScale) {
-        if (scaleAnim.targetValue != targetScale) {
-            scaleAnim.animateTo(
-                targetValue = targetScale,
-                animationSpec = spring(dampingRatio = 0.72f, stiffness = 550f),
-            )
-        }
-    }
-
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnPressHoldChange by rememberUpdatedState(onPressHoldChange)
     val currentOnDragStart by rememberUpdatedState(onDragStart)
@@ -439,7 +409,12 @@ fun FolderIcon(
             }
             .graphicsLayer {
                 alpha = if (isBeingDragged) 0.18f else 1f
-                val s = scaleAnim.value
+                val s = when {
+                    isBeingDragged -> 0.85f
+                    pressingLong -> 1.12f
+                    pressingDown -> 0.93f
+                    else -> 1f
+                }
                 scaleX = s
                 scaleY = s
             },

@@ -166,25 +166,13 @@ fun AppDrawer(
                 val eased = 1f - (1f - p) * (1f - p)
                 if (isDraggingFromDrawer) {
                     translationY = 0f
-                    scaleX = 1f
-                    scaleY = 1f
                     alpha = (p * 1.15f).coerceIn(0f, 1f)
-                    clip = false
                 } else if (p <= 0.001f) {
                     translationY = size.height
-                    scaleX = 1f
-                    scaleY = 1f
                     alpha = 0f
-                    clip = false
                 } else {
-                    translationY = (1f - eased) * size.height * 0.58f
-                    val sScale = if (p >= 0.999f) 1f else 0.94f + 0.06f * eased
-                    scaleX = sScale
-                    scaleY = sScale
-                    transformOrigin = DrawerCenterOrigin
-                    alpha = (p * 1.35f).coerceIn(0f, 1f)
-                    shape = DrawerTopShape
-                    clip = p < 0.999f
+                    translationY = (1f - eased) * size.height
+                    alpha = 1f
                 }
             }
             .background(bg)
