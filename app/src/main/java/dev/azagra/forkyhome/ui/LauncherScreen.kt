@@ -98,6 +98,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
@@ -930,6 +931,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             Modifier
                 .fillMaxSize()
                 .graphicsLayer {
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
                     val p = drawer.progress.coerceIn(0f, 1f)
                     if (p <= 0.001f) {
                         alpha = 1f

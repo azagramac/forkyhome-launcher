@@ -35,6 +35,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -110,8 +111,9 @@ fun AppDrawer(
     val currentHoldingOrDragging by rememberUpdatedState(isHoldingOrDragging)
     val dragSpanPx = remember(heightPx) { (heightPx * 0.68f).coerceAtLeast(1f) }
 
-    LaunchedEffect(drawer.isOpen, isDraggingFromDrawer) {
-        if (!drawer.isOpen && !isDraggingFromDrawer) {
+    val drawerOpen by remember(drawer) { derivedStateOf { drawer.isOpen } }
+    LaunchedEffect(drawerOpen, isDraggingFromDrawer) {
+        if (!drawerOpen && !isDraggingFromDrawer) {
             focusManager.clearFocus()
             if (query.isNotEmpty()) query = ""
             if (gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 0) {

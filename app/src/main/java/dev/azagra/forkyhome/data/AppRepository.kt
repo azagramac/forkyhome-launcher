@@ -251,7 +251,7 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
     ): Pair<ImageBitmap, ImageBitmap> {
         val daySuffix = if (c.pack != null) "_d${Calendar.getInstance().get(Calendar.DAY_OF_MONTH)}" else ""
         val ovSuffix = override?.let { "_ov_${it.hashCode()}" } ?: ""
-        val cfgKey = "v2_${c.pack ?: "sys"}_${c.themed}_${c.dark}_${c.shape.name}$daySuffix$ovSuffix"
+        val cfgKey = "${CACHE_VERSION}_${c.pack ?: "sys"}_${c.themed}_${c.dark}_${c.shape.name}$daySuffix$ovSuffix"
         val baseId = "${info.componentName.packageName}_${info.componentName.className}_${user.hashCode()}_${cfgKey.hashCode()}"
         val normalFile = File(cacheDir, "${baseId}_n.png")
         val homeFile = File(cacheDir, "${baseId}_h.png")
@@ -267,12 +267,25 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
         if (homeBmp !== normalBmp) {
             saveCached(homeFile, homeBmp)
         }
-        return normalBmp.asImageBitmap() to homeBmp.asImageBitmap()
+        val hwNormal = normalBmp.toHardwareOrSelf()
+        val hwHome = if (homeBmp === normalBmp) hwNormal else homeBmp.toHardwareOrSelf()
+        if (hwNormal !== normalBmp) normalBmp.recycle()
+        if (homeBmp !== normalBmp && hwHome !== homeBmp) homeBmp.recycle()
+        return hwNormal.asImageBitmap() to hwHome.asImageBitmap()
+    }
+
+    private fun Bitmap.toHardwareOrSelf(): Bitmap =
+        runCatching { copy(Bitmap.Config.HARDWARE, false) }.getOrNull() ?: this
+
+    private val hardwareDecodeOptions = BitmapFactory.Options().apply {
+        inPreferredConfig = Bitmap.Config.HARDWARE
     }
 
     private fun decodeCached(file: File): ImageBitmap? {
         if (!file.exists()) return null
-        return runCatching { BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap() }.getOrNull()
+        return runCatching {
+            BitmapFactory.decodeFile(file.absolutePath, hardwareDecodeOptions)?.asImageBitmap()
+        }.getOrNull()
     }
 
     private fun saveCached(file: File, bmp: Bitmap) {
@@ -421,5 +434,6 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
 
     private companion object {
         const val ICON_PX = 192
+        const val CACHE_VERSION = "v3"
     }
 }
