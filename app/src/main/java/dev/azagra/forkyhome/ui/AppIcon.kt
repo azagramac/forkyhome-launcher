@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.Badge
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -234,10 +235,10 @@ fun AppIcon(
                 }
             }
             if (showLabel) {
-                Text(
-                    app.label,
-                    color = labelColor,
-                    style = labelStyle,
+                val resolvedLabelStyle = remember(labelStyle, labelColor) { labelStyle.copy(color = labelColor) }
+                BasicText(
+                    text = app.label,
+                    style = resolvedLabelStyle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp),
