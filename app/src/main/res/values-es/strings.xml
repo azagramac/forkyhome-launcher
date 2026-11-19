@@ -138,7 +138,7 @@
     <string name="new_page_drop_hint">Suelta aquí para crear una nueva página</string>
     <string name="settings_set_default_launcher">Establecer como launcher predeterminado</string>
 
-    <string name="section_privacy">Privacidad (Trebuchet)</string>
+    <string name="section_privacy">Privacidad</string>
     <string name="settings_hidden_protected_apps">Aplicaciones ocultas y protegidas</string>
     <string name="settings_hidden_protected_desc">%1$d ocultas · %2$d protegidas</string>
     <string name="dialog_hidden_protected_title">Aplicaciones ocultas y protegidas</string>
