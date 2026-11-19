@@ -231,24 +231,29 @@ fun AppDrawer(
                 key = { it.key },
                 contentType = { "drawer_app" },
             ) { app ->
+                val itemActionsProvider = remember(app.key) { { actionsFor(app) } }
+                val itemOnClick = remember(app.key) { { onLaunch(app) } }
+                val itemOnDragStart = remember(app.key) {
+                    { startRootPos: Offset ->
+                        focusManager.clearFocus()
+                        onStartAppDrag(app, startRootPos)
+                    }
+                }
                 AppIcon(
                     app = app,
                     badge = if (s.badgeNumbers) counts[app.pkg] ?: 0 else 0,
                     showLabel = s.showLabels,
                     labelColor = on,
                     iconSize = drawerIconSize,
-                    actionsProvider = { actionsFor(app) },
-                    onClick = { onLaunch(app) },
+                    actionsProvider = itemActionsProvider,
+                    onClick = itemOnClick,
                     modifier = Modifier.fillMaxWidth(),
                     useHomeIcon = false,
                     iconShape = s.iconShape,
                     enableDrag = !s.lockDesktop,
                     isBeingDragged = draggedDrawerAppKey == app.key,
                     onPressHoldChange = onItemHoldChange,
-                    onDragStart = { startRootPos ->
-                        focusManager.clearFocus()
-                        onStartAppDrag(app, startRootPos)
-                    },
+                    onDragStart = itemOnDragStart,
                     onDrag = onDragApp,
                     onDragEnd = onEndAppDrag,
                 )

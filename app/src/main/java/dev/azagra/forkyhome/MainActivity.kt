@@ -33,6 +33,9 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             window.frameRateBoostOnTouchEnabled = true
         }
+        display?.supportedModes?.maxByOrNull { it.refreshRate }?.let { highMode ->
+            window.attributes = window.attributes.apply { preferredDisplayModeId = highMode.modeId }
+        }
         container = (application as LauncherApp).container
 
         widgets = WidgetController(this) { id, info ->
