@@ -10,6 +10,17 @@
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/9d1ea2aa-fd9a-4bad-bba4-53e6c9d412a0" width="22%" alt="Home Screen" />
+  <img src="https://github.com/user-attachments/assets/34828ccd-6434-4b7f-998a-b2c1459cc391" width="22%" alt="Settings" />
+  <img src="https://github.com/user-attachments/assets/ac82b20b-e269-4484-a174-189fbe608e7a" width="22%" alt="Settings/General" />
+  <img src="https://github.com/user-attachments/assets/7092258b-abd8-4b44-8c90-487fd391ff31" width="22%" alt="About" />
+</p>
+
+---
+
 ## Compatibility & Specs
 
 * **Package**: `dev.azagra.forkyhome`
