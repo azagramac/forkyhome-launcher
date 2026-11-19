@@ -218,6 +218,9 @@ fun AppDrawer(
         val drawerIconSize = remember(s.columns, s.drawerIconScale) {
             resolveIconSizeDp(s.columns, s.drawerIconScale).dp
         }
+        val drawerLabelStyle = MaterialTheme.typography.labelSmall
+        val badgeBg = MaterialTheme.colorScheme.primary
+        val badgeFg = MaterialTheme.colorScheme.onPrimary
         LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Fixed(s.columns),
@@ -256,6 +259,9 @@ fun AppDrawer(
                     onDragStart = itemOnDragStart,
                     onDrag = onDragApp,
                     onDragEnd = onEndAppDrag,
+                    labelStyle = drawerLabelStyle,
+                    badgeContainerColor = badgeBg,
+                    badgeContentColor = badgeFg,
                 )
             }
         }

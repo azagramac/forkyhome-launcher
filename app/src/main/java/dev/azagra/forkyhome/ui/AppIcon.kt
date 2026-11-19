@@ -48,6 +48,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -89,6 +90,16 @@ private fun LayoutCoordinates?.toRootPos(localPos: Offset): Offset {
     }
 }
 
+private class AppIconRef(
+    var coords: LayoutCoordinates? = null,
+    var onClick: () -> Unit = {},
+    var actionsProvider: () -> List<MenuAction> = { emptyList() },
+    var onPressHoldChange: (Boolean) -> Unit = {},
+    var onDragStart: (Offset) -> Unit = {},
+    var onDrag: (Offset) -> Unit = {},
+    var onDragEnd: () -> Unit = {},
+)
+
 @Composable
 fun AppIcon(
     app: AppInfo,
@@ -107,24 +118,27 @@ fun AppIcon(
     onDragStart: (posInRoot: Offset) -> Unit = {},
     onDrag: (posInRoot: Offset) -> Unit = {},
     onDragEnd: () -> Unit = {},
+    labelStyle: TextStyle = MaterialTheme.typography.labelSmall,
+    badgeContainerColor: Color = MaterialTheme.colorScheme.primary,
+    badgeContentColor: Color = MaterialTheme.colorScheme.onPrimary,
 ) {
     var menu by remember { mutableStateOf(false) }
     var pressingDown by remember { mutableStateOf(false) }
     var pressingLong by remember { mutableStateOf(false) }
-    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     val haptics = LocalHapticFeedback.current
     val bitmap = if (useHomeIcon) app.homeIcon else app.icon
 
-    val currentOnClick by rememberUpdatedState(onClick)
-    val currentActionsProvider by rememberUpdatedState(actionsProvider)
-    val currentOnPressHoldChange by rememberUpdatedState(onPressHoldChange)
-    val currentOnDragStart by rememberUpdatedState(onDragStart)
-    val currentOnDrag by rememberUpdatedState(onDrag)
-    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
+    val ref = remember { AppIconRef() }
+    ref.onClick = onClick
+    ref.actionsProvider = actionsProvider
+    ref.onPressHoldChange = onPressHoldChange
+    ref.onDragStart = onDragStart
+    ref.onDrag = onDrag
+    ref.onDragEnd = onDragEnd
 
     Box(
         modifier = modifier
-            .onPlaced { coords = it }
+            .onPlaced { ref.coords = it }
             .pointerInput(app.key, enableDrag) {
                 val dragThresholdPx = 4.dp.toPx()
                 awaitEachGesture {
@@ -139,7 +153,7 @@ fun AppIcon(
                         val up = currentEvent.changes.firstOrNull { it.id == down.id }
                         if (up != null && !up.pressed && (up.position - down.position).getDistance() <= viewConfiguration.touchSlop) {
                             up.consume()
-                            currentOnClick()
+                            ref.onClick()
                         }
                     } else {
                         longPress.consume()
@@ -150,7 +164,7 @@ fun AppIcon(
                             menu = true
                         } else {
                             pressingLong = true
-                            currentOnPressHoldChange(true)
+                            ref.onPressHoldChange(true)
                             var dragging = false
                             val startLocalPos = longPress.position
                             try {
@@ -165,21 +179,21 @@ fun AppIcon(
                                     if (!dragging && movedDist > dragThresholdPx) {
                                         dragging = true
                                         pressingLong = false
-                                        val rootPos = coords.toRootPos(change.position)
-                                        currentOnDragStart(rootPos)
-                                        currentOnDrag(rootPos)
+                                        val rootPos = ref.coords.toRootPos(change.position)
+                                        ref.onDragStart(rootPos)
+                                        ref.onDrag(rootPos)
                                     } else if (dragging) {
-                                        val rootPos = coords.toRootPos(change.position)
-                                        currentOnDrag(rootPos)
+                                        val rootPos = ref.coords.toRootPos(change.position)
+                                        ref.onDrag(rootPos)
                                     }
                                     change.consume()
                                 }
                             } finally {
                                 pressingLong = false
-                                currentOnPressHoldChange(false)
+                                ref.onPressHoldChange(false)
                             }
                             if (dragging) {
-                                currentOnDragEnd()
+                                ref.onDragEnd()
                             } else {
                                 menu = true
                             }
@@ -214,8 +228,8 @@ fun AppIcon(
                 if (badge > 0) {
                     Badge(
                         modifier = Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-2).dp),
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        containerColor = badgeContainerColor,
+                        contentColor = badgeContentColor,
                     ) { Text(if (badge > 99) "99+" else badge.toString()) }
                 }
             }
@@ -223,7 +237,7 @@ fun AppIcon(
                 Text(
                     app.label,
                     color = labelColor,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = labelStyle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp),
@@ -232,7 +246,7 @@ fun AppIcon(
         }
         if (menu) {
             val actions by produceState<List<MenuAction>?>(null, app.key) {
-                value = withContext(Dispatchers.IO) { currentActionsProvider() }
+                value = withContext(Dispatchers.IO) { ref.actionsProvider() }
             }
             val loadedActions = actions
             if (loadedActions != null) {
