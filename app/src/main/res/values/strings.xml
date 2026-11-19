@@ -139,7 +139,7 @@
     <string name="new_page_drop_hint">Drop here to create a new page</string>
     <string name="settings_set_default_launcher">Set as default launcher</string>
 
-    <string name="section_privacy">Privacy (Trebuchet)</string>
+    <string name="section_privacy">Privacy</string>
     <string name="settings_hidden_protected_apps">Hidden &amp; protected apps</string>
     <string name="settings_hidden_protected_desc">%1$d hidden · %2$d protected</string>
     <string name="dialog_hidden_protected_title">Hidden &amp; protected apps</string>

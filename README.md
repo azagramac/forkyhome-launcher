@@ -5,7 +5,7 @@
 <h1 align="center">ForkyHome</h1>
 
 <p align="center">
-  A lightweight, high-performance Android home screen launcher built with <strong>Kotlin</strong> and <strong>Jetpack Compose</strong>, inspired by <strong>LineageOS Trebuchet</strong> and <strong>AOSP</strong>, designed with <strong>Material 3 / Material You</strong>.
+  A lightweight, high-performance Android home screen launcher built with <strong>Kotlin</strong> and <strong>Jetpack Compose</strong>, designed with <strong>Material 3 / Material You</strong>.
 </p>
 
 ---
@@ -31,9 +31,9 @@
 
 ---
 
-## Performance & AOSP-Grade Architecture
+## Performance & Architecture
 
-Built to match the responsiveness and low power footprint of native AOSP launchers:
+Built for 120Hz+ responsiveness and a low power footprint:
 
 * **Hardware-Backed Disk Icon Cache**: Rendered app icons (including icon pack masks, dynamic calendar icons, monochrome themed icons, and pre-clipped shapes) are cached in `cacheDir/icon_cache` and decoded as `Bitmap.Config.HARDWARE` (`AHardwareBuffer`), eliminating per-frame bitmap uploads during fast flings.
 * **Incremental Package Updates**: `ACTION_PACKAGE_ADDED`, `ACTION_PACKAGE_CHANGED`, and `ACTION_PACKAGE_REMOVED` broadcasts update only the affected package instead of reloading the entire app catalog.
@@ -72,7 +72,7 @@ ForkyHome is designed with strict local-only privacy:
 ### Home Screen, Dock & Widgets
 * **Configurable Workspace**: Dynamic home pages (auto-compacted), configurable grid (`4–6` columns × `4–7` rows), and a bottom dock supporting up to **5** pinned apps.
 * **Real-Time Drag & Drop**: Drag apps from the drawer, home screen, dock, or open folders directly onto grid cells, dock slots, or edge zones to switch pages automatically.
-* **Trebuchet-Style Folders**: `2×2` preview grid icon, floating Material 3 folder overlay with debounced inline title editing, and drag-out support.
+* **Folder Preview & Overlay**: `2×2` preview grid icon, floating Material 3 folder overlay with debounced inline title editing, and drag-out support.
 * **Native Widgets (`AppWidgetHost`)**: Add, configure, reconfigure, move, and resize (`spanX × spanY`) home screen widgets with automatic displacement of nearby icons.
 * **At A Glance Header**: Optional top header displaying the current date, next scheduled alarm (`AlarmManager`), and battery level/charging state.
 * **Desktop Controls**: Lock desktop layout, auto-add newly installed apps, toggle icon labels, swipe down anywhere to expand the notification shade (`EXPAND_STATUS_BAR`), and optional double-tap to sleep via `LockScreenService` (Accessibility).
@@ -85,6 +85,6 @@ ForkyHome is designed with strict local-only privacy:
 ### Icons & Icon Packs
 * **Adaptive Icon Sizing**: Automatic column-based sizing (`60dp` for 4 cols, `54dp` for 5 cols, `48dp` for 6 cols) with independent `80%–120%` scale sliders for Home and Drawer.
 * **5 Icon Shapes**: System Default, Circle, Squircle, Rounded, and Teardrop.
-* **Icon Pack Engine**: Compatible with standard icon packs (ADW, Nova, Lawnchair, Action, Apex, Go, Smart Launcher, CandyBar / Papirus) supporting `appfilter.xml` (`res/xml`, `res/raw`, or `assets`), `appmap.xml` and `theme_resources.xml` fallbacks, dynamic `<calendar>` icons with automatic midnight/date-change refresh, optical size balancing between pack icons and system fallbacks when a pack is active, freeform pack preservation, and `<iconback>`, `<iconmask>`, `<iconupon>`, `<scale>` fallback masking.
+* **Icon Pack Engine**: Compatible with standard third-party Android icon packs supporting `appfilter.xml` (`res/xml`, `res/raw`, or `assets`), `appmap.xml` and `theme_resources.xml` fallbacks, dynamic `<calendar>` icons with automatic midnight/date-change refresh, optical size balancing between pack icons and system fallbacks when a pack is active, freeform pack preservation, and `<iconback>`, `<iconmask>`, `<iconupon>`, `<scale>` fallback masking.
 * **Themed Monochrome Icons**: Material You monochrome icon rendering on the home screen and dock using `AdaptiveIconDrawable.monochrome`.
 * **App Shortcuts & Badges**: Long-press context menu with dynamic/manifest app shortcuts, app info, and uninstall actions. *(Note: `NotificationCounter` `NotificationListenerService` is included in source and commented out in `AndroidManifest.xml` by default for Android 15+ sideload Play Protect compatibility).*
