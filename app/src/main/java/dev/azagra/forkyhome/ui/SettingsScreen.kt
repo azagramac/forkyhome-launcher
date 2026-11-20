@@ -11,8 +11,15 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -45,6 +52,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
@@ -75,6 +83,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -119,6 +128,7 @@ private enum class SettingsRoute {
     AT_A_GLANCE,
     APP_DRAWER,
     GESTURES,
+    PRIVACY,
     ABOUT,
 }
 
@@ -169,7 +179,6 @@ fun SettingsScreen(
     var homeIconScale by remember(s.homeIconScale) { mutableFloatStateOf(s.homeIconScale) }
     var drawerIconScale by remember(s.drawerIconScale) { mutableFloatStateOf(s.drawerIconScale) }
     var packDialog by remember { mutableStateOf(false) }
-    var privacyDialog by remember { mutableStateOf(false) }
     var accessibilityDisclosureDialog by remember { mutableStateOf(false) }
 
     val roleManager = remember { ctx.getSystemService(RoleManager::class.java) }
@@ -188,6 +197,7 @@ fun SettingsScreen(
         SettingsRoute.AT_A_GLANCE -> stringResource(R.string.settings_at_a_glance)
         SettingsRoute.APP_DRAWER -> stringResource(R.string.section_app_drawer)
         SettingsRoute.GESTURES -> stringResource(R.string.cat_gestures)
+        SettingsRoute.PRIVACY -> stringResource(R.string.cat_privacy)
         SettingsRoute.ABOUT -> stringResource(R.string.cat_about)
     }
 
@@ -224,17 +234,42 @@ fun SettingsScreen(
             AnimatedContent(
                 targetState = route,
                 transitionSpec = {
-                    if (targetState != SettingsRoute.DASHBOARD) {
-                        (slideInHorizontally { it / 4 } + fadeIn()) togetherWith
-                            (slideOutHorizontally { -it / 6 } + fadeOut())
-                    } else {
-                        (slideInHorizontally { -it / 4 } + fadeIn()) togetherWith
-                            (slideOutHorizontally { it / 6 } + fadeOut())
+                    when {
+                        targetState == SettingsRoute.PRIVACY -> {
+                            (scaleIn(
+                                initialScale = 0.92f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                    stiffness = Spring.StiffnessMediumLow,
+                                ),
+                            ) + fadeIn(tween(240))) togetherWith
+                                (scaleOut(targetScale = 1.04f, animationSpec = tween(180)) + fadeOut(tween(180)))
+                        }
+                        initialState == SettingsRoute.PRIVACY -> {
+                            (scaleIn(initialScale = 1.04f, animationSpec = tween(220)) + fadeIn(tween(220))) togetherWith
+                                (scaleOut(targetScale = 0.94f, animationSpec = tween(180)) + fadeOut(tween(180)))
+                        }
+                        targetState != SettingsRoute.DASHBOARD -> {
+                            (slideInHorizontally { it / 4 } + fadeIn()) togetherWith
+                                (slideOutHorizontally { -it / 6 } + fadeOut())
+                        }
+                        else -> {
+                            (slideInHorizontally { -it / 4 } + fadeIn()) togetherWith
+                                (slideOutHorizontally { it / 6 } + fadeOut())
+                        }
                     }
                 },
                 label = "settingsRoute",
                 modifier = Modifier.padding(pad),
             ) { currentRoute ->
+                if (currentRoute == SettingsRoute.PRIVACY) {
+                    PrivacyAppsScreen(
+                        s = s,
+                        allApps = allApps,
+                        onChange = onChange,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
                 Column(
                     Modifier
                         .fillMaxSize()
@@ -340,9 +375,9 @@ fun SettingsScreen(
                                         ),
                                         onClick = {
                                             if (onAuthenticate != null) {
-                                                onAuthenticate { privacyDialog = true }
+                                                onAuthenticate { route = SettingsRoute.PRIVACY }
                                             } else {
-                                                privacyDialog = true
+                                                route = SettingsRoute.PRIVACY
                                             }
                                         },
                                     )
@@ -885,8 +920,10 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                        SettingsRoute.PRIVACY -> Unit
                     }
                     Spacer(Modifier.height(16.dp))
+                }
                 }
             }
         }
@@ -982,112 +1019,6 @@ fun SettingsScreen(
         )
     }
 
-    if (privacyDialog) {
-        var searchQuery by remember { mutableStateOf("") }
-        var selectedTab by remember { mutableIntStateOf(0) }
-        val uniqueApps = remember(allApps, searchQuery) {
-            val base = allApps.distinctBy { it.pkg }
-            if (searchQuery.isBlank()) base
-            else base.filter { it.label.contains(searchQuery, ignoreCase = true) }
-        }
-
-        AlertDialog(
-            onDismissRequest = { privacyDialog = false },
-            shape = SectionCardShape,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            title = { Text(stringResource(R.string.dialog_hidden_protected_title)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        FilterChip(
-                            selected = selectedTab == 0,
-                            onClick = { selectedTab = 0 },
-                            label = { Text("${stringResource(R.string.label_hidden)} (${s.hiddenApps.size})") },
-                            modifier = Modifier.weight(1f),
-                        )
-                        FilterChip(
-                            selected = selectedTab == 1,
-                            onClick = { selectedTab = 1 },
-                            label = { Text("${stringResource(R.string.label_protected)} (${s.protectedApps.size})") },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        singleLine = true,
-                        placeholder = { Text(stringResource(R.string.search_apps)) },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        shape = OptionCardShape,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp),
-                        contentPadding = PaddingValues(vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        items(uniqueApps, key = { it.pkg }) { app ->
-                            val isChecked = if (selectedTab == 0) app.pkg in s.hiddenApps else app.pkg in s.protectedApps
-                            Surface(
-                                shape = OptionCardShape,
-                                color = if (isChecked) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                                else MaterialTheme.colorScheme.surfaceContainer,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(OptionCardShape)
-                                    .clickable {
-                                        onChange { st ->
-                                            if (selectedTab == 0) {
-                                                val next = if (isChecked) st.hiddenApps - app.pkg else st.hiddenApps + app.pkg
-                                                st.copy(hiddenApps = next)
-                                            } else {
-                                                val next = if (isChecked) st.protectedApps - app.pkg else st.protectedApps + app.pkg
-                                                st.copy(protectedApps = next)
-                                            }
-                                        }
-                                    },
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Image(
-                                        bitmap = app.icon,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(38.dp),
-                                    )
-                                    Spacer(Modifier.width(12.dp))
-                                    Text(
-                                        text = app.label,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    Switch(
-                                        checked = isChecked,
-                                        onCheckedChange = null,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton({ privacyDialog = false }) { Text(stringResource(R.string.action_close)) }
-            },
-        )
-    }
-
     if (accessibilityDisclosureDialog) {
         AlertDialog(
             onDismissRequest = { accessibilityDisclosureDialog = false },
@@ -1118,6 +1049,196 @@ fun SettingsScreen(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun PrivacyAppsScreen(
+    s: LauncherSettings,
+    allApps: List<AppInfo>,
+    onChange: ((LauncherSettings) -> LauncherSettings) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var revealed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        revealed = true
+    }
+
+    val uniqueApps = remember(allApps, searchQuery, selectedTab, s.hiddenApps, s.protectedApps) {
+        val base = allApps.distinctBy { it.pkg }
+        val filtered = if (searchQuery.isBlank()) base else base.filter {
+            it.label.contains(searchQuery, ignoreCase = true)
+        }
+        filtered.sortedByDescending { app ->
+            if (selectedTab == 0) app.pkg in s.hiddenApps else app.pkg in s.protectedApps
+        }
+    }
+
+    Column(
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Surface(
+            shape = SectionCardShape,
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.dialog_hidden_protected_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.settings_hidden_protected_desc,
+                            s.hiddenApps.size,
+                            s.protectedApps.size,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                    )
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                leadingIcon = if (selectedTab == 0) {
+                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                } else null,
+                label = { Text("${stringResource(R.string.label_hidden)} (${s.hiddenApps.size})") },
+                modifier = Modifier.weight(1f),
+            )
+            FilterChip(
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1 },
+                leadingIcon = if (selectedTab == 1) {
+                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                } else null,
+                label = { Text("${stringResource(R.string.label_protected)} (${s.protectedApps.size})") },
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            singleLine = true,
+            placeholder = { Text(stringResource(R.string.search_apps)) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = if (searchQuery.isNotEmpty()) {
+                {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Close, contentDescription = null)
+                    }
+                }
+            } else null,
+            shape = OptionCardShape,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        AnimatedVisibility(
+            visible = revealed,
+            enter = fadeIn(tween(260)) + expandVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+            ),
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 2.dp, bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(uniqueApps, key = { it.pkg }) { app ->
+                    val isChecked = if (selectedTab == 0) app.pkg in s.hiddenApps else app.pkg in s.protectedApps
+                    Surface(
+                        shape = OptionCardShape,
+                        color = if (isChecked) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+                        else MaterialTheme.colorScheme.surfaceContainer,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItem()
+                            .clip(OptionCardShape)
+                            .clickable {
+                                onChange { st ->
+                                    if (selectedTab == 0) {
+                                        val next = if (isChecked) st.hiddenApps - app.pkg else st.hiddenApps + app.pkg
+                                        st.copy(hiddenApps = next)
+                                    } else {
+                                        val next = if (isChecked) st.protectedApps - app.pkg else st.protectedApps + app.pkg
+                                        st.copy(protectedApps = next)
+                                    }
+                                }
+                            },
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Image(
+                                bitmap = app.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp),
+                            )
+                            Spacer(Modifier.width(14.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = app.label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isChecked) FontWeight.Medium else FontWeight.Normal,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = app.pkg,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Switch(
+                                checked = isChecked,
+                                onCheckedChange = null,
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
