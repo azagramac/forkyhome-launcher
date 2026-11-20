@@ -98,6 +98,7 @@ import dev.azagra.forkyhome.data.DrawerBg
 import dev.azagra.forkyhome.data.LauncherSettings
 import dev.azagra.forkyhome.data.resolveIconSizeDp
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val DrawerTopShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
@@ -466,10 +467,10 @@ private fun TrebuchetFastScroller(
     val thumbColor = MaterialTheme.colorScheme.primary
     val popupTextColor = MaterialTheme.colorScheme.onPrimary
 
-    val trackMinWidth = 6.dp
-    val trackMaxWidth = 8.dp
+    val trackMinWidth = 4.dp
+    val trackMaxWidth = 6.dp
     val thumbPadding = 1.dp
-    val thumbHeight = 52.dp
+    val thumbHeight = 40.dp
     val popupWidth = 75.dp
     val popupHeight = 62.dp
     val topPadding = 8.dp
@@ -483,6 +484,22 @@ private fun TrebuchetFastScroller(
         targetValue = if (isDragging) 1f else 0f,
         animationSpec = tween(durationMillis = if (isDragging) 200 else 150),
         label = "fastScrollPopupAlpha",
+    )
+
+    var isBarVisible by remember { mutableStateOf(false) }
+    val isScrolling = gridState.isScrollInProgress
+    LaunchedEffect(isDragging, isScrolling) {
+        if (isDragging || isScrolling) {
+            isBarVisible = true
+        } else if (isBarVisible) {
+            delay(2000L)
+            isBarVisible = false
+        }
+    }
+    val barAlpha by animateFloatAsState(
+        targetValue = if (isBarVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = if (isBarVisible) 150 else 250),
+        label = "fastScrollBarAlpha",
     )
 
     var dragProgress by remember { mutableFloatStateOf(0f) }
@@ -605,6 +622,7 @@ private fun TrebuchetFastScroller(
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
                 .width(34.dp)
+                .graphicsLayer { alpha = barAlpha }
                 .pointerInput(trackTopPx, travelPx, thumbHeightPx) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
