@@ -1,7 +1,15 @@
 package dev.azagra.forkyhome.ui
 
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Path
+import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -11,20 +19,25 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -36,12 +49,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,7 +67,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -62,15 +81,24 @@ import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.azagra.forkyhome.R
 import dev.azagra.forkyhome.data.AppInfo
 import dev.azagra.forkyhome.data.DrawerBg
 import dev.azagra.forkyhome.data.LauncherSettings
 import dev.azagra.forkyhome.data.resolveIconSizeDp
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 private val DrawerTopShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 private val SearchBarShape = RoundedCornerShape(28.dp)
@@ -122,7 +150,15 @@ fun AppDrawer(
     val currentHoldingOrDragging by rememberUpdatedState(isHoldingOrDragging)
     val dragSpanPx = remember(heightPx) { (heightPx * 0.68f).coerceAtLeast(1f) }
 
+    val view = LocalView.current
     val drawerOpen by remember(drawer) { derivedStateOf { drawer.isOpen } }
+    var wasDrawerOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(drawerOpen) {
+        if (drawerOpen && !wasDrawerOpen) {
+            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        }
+        wasDrawerOpen = drawerOpen
+    }
     LaunchedEffect(drawerOpen, isDraggingFromDrawer) {
         if (!drawerOpen && !isDraggingFromDrawer) {
             focusManager.clearFocus()
@@ -270,11 +306,13 @@ fun AppDrawer(
         val longPressedKeyReader = remember { { longPressedKey } }
         val draggedKeyReader = remember { { currentDraggedKey } }
 
+        var isFastScrolling by remember { mutableStateOf(false) }
+
         Box(Modifier.weight(1f).fillMaxWidth()) {
             LazyVerticalGrid(
                 state = gridState,
                 columns = GridCells.Fixed(s.columns),
-                userScrollEnabled = !isHoldingOrDragging,
+                userScrollEnabled = !isHoldingOrDragging && !isFastScrolling,
                 modifier = Modifier
                     .fillMaxSize()
                     .onPlaced { gridCoords = it }
@@ -379,6 +417,19 @@ fun AppDrawer(
                     )
                 }
             }
+            TrebuchetFastScroller(
+                gridState = gridState,
+                apps = filtered,
+                columns = s.columns,
+                trackColor = on.copy(alpha = 30f / 255f),
+                bottomPadding = navBottomPadding + 20.dp,
+                isDragging = isFastScrolling,
+                onDraggingChange = { dragging ->
+                    isFastScrolling = dragging
+                    if (dragging) focusManager.clearFocus()
+                },
+                modifier = Modifier.matchParentSize(),
+            )
             menuTarget?.let { (menuApp, menuOffset) ->
                 val actionsProvider = remember(menuApp.key) { { actionsFor(menuApp) } }
                 AppActionsMenu(
@@ -388,6 +439,215 @@ fun AppDrawer(
                     offset = menuOffset,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun TrebuchetFastScroller(
+    gridState: LazyGridState,
+    apps: List<AppInfo>,
+    columns: Int,
+    trackColor: Color,
+    bottomPadding: Dp,
+    isDragging: Boolean,
+    onDraggingChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val canScroll by remember(gridState) {
+        derivedStateOf { gridState.canScrollForward || gridState.canScrollBackward }
+    }
+    if (apps.isEmpty() || !canScroll) return
+
+    val density = LocalDensity.current
+    val view = LocalView.current
+    val scope = rememberCoroutineScope()
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val thumbColor = MaterialTheme.colorScheme.primary
+    val popupTextColor = MaterialTheme.colorScheme.onPrimary
+
+    val trackMinWidth = 6.dp
+    val trackMaxWidth = 8.dp
+    val thumbPadding = 1.dp
+    val thumbHeight = 52.dp
+    val popupWidth = 75.dp
+    val popupHeight = 62.dp
+    val topPadding = 8.dp
+
+    val animatedTrackWidth by animateDpAsState(
+        targetValue = if (isDragging) trackMaxWidth else trackMinWidth,
+        animationSpec = tween(durationMillis = 150),
+        label = "fastScrollTrackWidth",
+    )
+    val popupAlpha by animateFloatAsState(
+        targetValue = if (isDragging) 1f else 0f,
+        animationSpec = tween(durationMillis = if (isDragging) 200 else 150),
+        label = "fastScrollPopupAlpha",
+    )
+
+    var dragProgress by remember { mutableFloatStateOf(0f) }
+    var currentLetter by remember { mutableStateOf("") }
+
+    val scrollProgress by remember(gridState, apps.size, columns) {
+        derivedStateOf {
+            val rowCount = ((apps.size + columns - 1) / columns).coerceAtLeast(1)
+            val firstRow = gridState.firstVisibleItemIndex / columns
+            val firstItem = gridState.layoutInfo.visibleItemsInfo.firstOrNull()
+            val rowHeightPx = firstItem?.size?.height?.toFloat()?.coerceAtLeast(1f) ?: 1f
+            val extraPaddingPx = gridState.layoutInfo.beforeContentPadding + gridState.layoutInfo.afterContentPadding
+            val totalContentPx = rowCount * rowHeightPx + extraPaddingPx
+            val viewportPx = gridState.layoutInfo.viewportSize.height.toFloat().coerceAtLeast(1f)
+            val maxScrollPx = (totalContentPx - viewportPx).coerceAtLeast(1f)
+            val currentScrollPx = firstRow * rowHeightPx + gridState.firstVisibleItemScrollOffset
+            (currentScrollPx / maxScrollPx).coerceIn(0f, 1f)
+        }
+    }
+
+    val effectiveProgress = if (isDragging) dragProgress else scrollProgress
+
+    val currentApps by rememberUpdatedState(apps)
+    val currentColumns by rememberUpdatedState(columns)
+    val currentOnDraggingChange by rememberUpdatedState(onDraggingChange)
+
+    BoxWithConstraints(modifier = modifier) {
+        val trackTopPx = with(density) { topPadding.toPx() }
+        val trackBottomPx = with(density) { bottomPadding.toPx() }
+        val thumbHeightPx = with(density) { thumbHeight.toPx() }
+        val popupHeightPx = with(density) { popupHeight.toPx() }
+        val containerHeightPx = with(density) { maxHeight.toPx() }
+        val trackHeightPx = (containerHeightPx - trackTopPx - trackBottomPx).coerceAtLeast(thumbHeightPx)
+        val travelPx = (trackHeightPx - thumbHeightPx).coerceAtLeast(1f)
+        val thumbOffsetY = trackTopPx + effectiveProgress * travelPx
+
+        fun scrollToFraction(fraction: Float) {
+            val clamped = fraction.coerceIn(0f, 1f)
+            dragProgress = clamped
+            val list = currentApps
+            if (list.isEmpty()) return
+            val cols = currentColumns.coerceAtLeast(1)
+            val rowCount = ((list.size + cols - 1) / cols).coerceAtLeast(1)
+            val firstItem = gridState.layoutInfo.visibleItemsInfo.firstOrNull()
+            val rowHeightPx = firstItem?.size?.height?.toFloat()?.coerceAtLeast(1f) ?: 1f
+            val extraPaddingPx = gridState.layoutInfo.beforeContentPadding + gridState.layoutInfo.afterContentPadding
+            val viewportPx = gridState.layoutInfo.viewportSize.height.toFloat().coerceAtLeast(1f)
+            val maxScrollPx = (rowCount * rowHeightPx + extraPaddingPx - viewportPx).coerceAtLeast(0f)
+            val targetScrollPx = clamped * maxScrollPx
+            val targetRow = (targetScrollPx / rowHeightPx).toInt().coerceIn(0, rowCount - 1)
+            val targetRowOffset = (targetScrollPx - targetRow * rowHeightPx).roundToInt().coerceAtLeast(0)
+            val targetIndex = (targetRow * cols).coerceIn(0, list.lastIndex)
+
+            val letterIndex = (clamped * list.lastIndex).roundToInt().coerceIn(0, list.lastIndex)
+            val ch = list[letterIndex].label.trim().firstOrNull()?.uppercaseChar() ?: '#'
+            val nextLetter = if (ch.isLetter()) ch.toString() else "#"
+            if (nextLetter != currentLetter) {
+                currentLetter = nextLetter
+                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+            }
+
+            scope.launch {
+                gridState.scrollToItem(targetIndex, targetRowOffset)
+            }
+        }
+
+        if (popupAlpha > 0.01f && currentLetter.isNotEmpty()) {
+            val popupCenterOffset = (thumbOffsetY + thumbHeightPx * 0.25f - popupHeightPx * 0.5f)
+                .coerceIn(0f, (containerHeightPx - popupHeightPx).coerceAtLeast(0f))
+            val teardropPath = remember { Path() }
+            val teardropMatrix = remember { Matrix() }
+            val teardropPaint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL } }
+
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset { IntOffset(x = 0, y = popupCenterOffset.roundToInt()) }
+                    .padding(end = 36.dp)
+                    .size(width = popupWidth, height = popupHeight)
+                    .graphicsLayer { alpha = popupAlpha },
+            ) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val r = size.height * 0.5f
+                    val diameter = 2f * r
+                    val r2 = r / 5f
+                    teardropPath.reset()
+                    teardropPath.addRoundRect(
+                        0f,
+                        0f,
+                        diameter,
+                        diameter,
+                        floatArrayOf(r, r, r, r, r2, r2, r, r),
+                        Path.Direction.CCW,
+                    )
+                    teardropMatrix.reset()
+                    teardropMatrix.setRotate(-45f, r, r)
+                    if (isRtl) {
+                        teardropMatrix.postTranslate(size.width, 0f)
+                        teardropMatrix.postScale(-1f, 1f, size.width, 0f)
+                    }
+                    teardropPath.transform(teardropMatrix)
+                    teardropPaint.color = thumbColor.toArgb()
+                    drawIntoCanvas { canvas ->
+                        canvas.nativeCanvas.drawPath(teardropPath, teardropPaint)
+                    }
+                }
+                Text(
+                    text = currentLetter,
+                    color = popupTextColor,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(end = 13.dp),
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(34.dp)
+                .pointerInput(trackTopPx, travelPx, thumbHeightPx) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        down.consume()
+                        currentOnDraggingChange(true)
+                        scrollToFraction((down.position.y - trackTopPx - thumbHeightPx / 2f) / travelPx)
+                        try {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) {
+                                    change.consume()
+                                    break
+                                }
+                                change.consume()
+                                scrollToFraction((change.position.y - trackTopPx - thumbHeightPx / 2f) / travelPx)
+                            }
+                        } finally {
+                            currentOnDraggingChange(false)
+                        }
+                    }
+                },
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = topPadding, bottom = bottomPadding, end = 6.dp)
+                    .fillMaxHeight()
+                    .width(animatedTrackWidth)
+                    .clip(CircleShape)
+                    .background(trackColor),
+            )
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset { IntOffset(x = 0, y = thumbOffsetY.roundToInt()) }
+                    .padding(end = 5.dp)
+                    .width(animatedTrackWidth + thumbPadding * 2)
+                    .height(thumbHeight)
+                    .clip(CircleShape)
+                    .background(thumbColor),
+            )
         }
     }
 }
