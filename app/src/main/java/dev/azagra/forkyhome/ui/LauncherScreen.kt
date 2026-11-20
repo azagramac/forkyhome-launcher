@@ -917,13 +917,34 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 }
             }
         }
-        LaunchedEffect(edgeDir, pagerState.currentPage, pageCount) {
-            if (edgeDir != 0) {
-                delay(450)
-                val next = (pagerState.currentPage + edgeDir).coerceIn(0, pageCount - 1)
-                if (next != pagerState.currentPage) {
-                    pagerState.animateScrollToPage(next)
+        val currentEdgeDir by rememberUpdatedState(edgeDir)
+        val currentPageCount by rememberUpdatedState(pageCount)
+        val isDraggingActive = dragSession != null
+        LaunchedEffect(isDraggingActive) {
+            if (!isDraggingActive) return@LaunchedEffect
+            var holdDir = 0
+            var holdStartMs = 0L
+            while (true) {
+                val dir = currentEdgeDir
+                if (dir == 0 || pagerState.isScrollInProgress) {
+                    holdDir = 0
+                    delay(50)
+                    continue
                 }
+                val now = android.os.SystemClock.uptimeMillis()
+                if (dir != holdDir) {
+                    holdDir = dir
+                    holdStartMs = now
+                } else if (now - holdStartMs >= 420L) {
+                    val next = (pagerState.currentPage + dir).coerceIn(0, currentPageCount - 1)
+                    if (next != pagerState.currentPage) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                            pagerState.animateScrollToPage(next)
+                        }
+                    }
+                    holdDir = 0
+                }
+                delay(50)
             }
         }
 
