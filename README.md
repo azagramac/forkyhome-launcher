@@ -198,6 +198,38 @@ Supported environments include:
 
 ---
 
+## Installation via ADB
+
+You can install ForkyHome directly on your device using Android Debug Bridge (`adb`):
+
+### Release Build (Recommended)
+
+For daily use or to evaluate the full performance and smoothness of the launcher, install the **release** APK (built with `isDebuggable = false` and R8 code/resource optimization):
+
+```bash
+adb install dev.azagra.forkyhome-<version>.apk
+```
+
+To update an existing installation without losing your layout or settings:
+
+```bash
+adb install -r dev.azagra.forkyhome-<version>.apk
+```
+
+### Debug Build
+
+The **debug** APK is intended for development and testing:
+
+```bash
+adb install dev.azagra.forkyhome-<version>-<versionCode>.apk
+```
+
+> **Note:** The debug build has `isDebuggable = true` enabled for the development environment (and runs without R8 optimization). This can noticeably degrade responsiveness, animations, and overall user experience, which is normal behavior. If you want to fully test the launcher, install the **release** build instead.
+
+> **Note on `.aab` files:** Android App Bundle (`.aab`) artifacts are reserved exclusively for **Google Play Internal Testing** distribution and are not meant to be installed directly via `adb install`.
+
+---
+
 ## Permissions & System Integration
 
 ForkyHome uses Android system APIs to provide home screen functionality.
