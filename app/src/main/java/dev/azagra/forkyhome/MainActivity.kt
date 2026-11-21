@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var container: Container
     private lateinit var widgets: WidgetController
+    private var isStopped = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,6 +66,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        isStopped = false
         widgets.host.startListening()
     }
 
@@ -124,12 +126,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        isStopped = true
         widgets.host.stopListening()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.action == Intent.ACTION_MAIN) container.homeEvents.tryEmit(Unit)
+        if (intent.action == Intent.ACTION_MAIN) container.homeEvents.tryEmit(!isStopped)
     }
 
     @Deprecated("Necesario para AppWidgetHost.startAppWidgetConfigureActivityForResult")

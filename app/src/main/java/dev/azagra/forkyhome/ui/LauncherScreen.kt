@@ -444,7 +444,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     }
     LaunchedEffect(pagerState.currentPage) { container.currentPage = pagerState.currentPage }
     LaunchedEffect(Unit) {
-        container.homeEvents.collect {
+        container.homeEvents.collect { animate ->
             showSettings = false
             showMenu = false
             openFolderId = null
@@ -452,7 +452,14 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             resizingWidgetId = null
             dragSession = null
             isHoldingItem = false
-            if (drawer.isOpen) drawer.animateTo(0f) else pagerState.animateScrollToPage(0)
+            if (animate) {
+                if (drawer.isOpen) drawer.animateTo(0f) else pagerState.animateScrollToPage(0)
+            } else {
+                // Returning from another app: snap immediately so the user doesn't see
+                // the drawer/pager closing animation on top of the system's app-exit transition.
+                if (drawer.isOpen) drawer.snapTo(0f)
+                if (pagerState.currentPage != 0) pagerState.scrollToPage(0)
+            }
         }
     }
 
