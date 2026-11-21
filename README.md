@@ -13,11 +13,11 @@
 
 ## About
 
-ForkyLauncher is an open-source Android home screen launcher inspired by the simplicity and philosophy of AOSP.
+ForkyHome is an open-source Android home screen launcher inspired by the simplicity and philosophy of AOSP.
 
 Designed around performance, privacy and simplicity, it provides a clean and distraction-free experience without unnecessary features, advertisements or background network activity.
 
-Built with modern Android technologies, ForkyLauncher combines a minimalist interface with advanced customization, native widgets, icon packs and smooth interactions.
+Built with modern Android technologies, ForkyHome combines a minimalist interface with advanced customization, native widgets, icon packs, notification badges and smooth interactions.
 
 **Key principles:**
 
@@ -50,14 +50,16 @@ Built with modern Android technologies, ForkyLauncher combines a minimalist inte
 - **Real-Time Drag & Drop:** Move applications between the drawer, home screen, dock and folders. Supports automatic page switching through edge zones.
 - **Folders:** 2×2 icon previews, floating Material 3 folder interface, inline title editing and drag-out support.
 - **Native Widgets:** Add, configure, move and resize Android widgets using the native `AppWidgetHost` API.
-- **At A Glance:** Optional header displaying the current date, next scheduled alarm and battery level or charging state.
-- **Desktop Controls:** Lock the workspace, automatically add newly installed applications, toggle icon labels and customize home screen interactions.
+- **At A Glance:** Optional header displaying the current date, next scheduled alarm, upcoming calendar event and battery level or charging state.
+- **Notification Badges:** Optional numeric notification counter on app icons across the home screen, dock, open folders and app drawer, displaying the exact active notification count (supporting both grouped and summary-only notifications).
+- **Desktop Controls:** Lock the workspace, automatically add newly installed applications, toggle icon labels, adjust home icon scaling and customize home screen interactions.
 - **Quick Notification Access:** Swipe down anywhere on the home screen to expand the notification shade.
 - **Double-Tap to Sleep:** Optional screen-lock functionality through Android Accessibility services.
 
 ### App Drawer
 
-- **Smooth Animations:** Finger-tracked opening and closing transitions with spring physics and parallax effects.
+- **Smooth Animations:** Finger-tracked opening and closing transitions with spring physics, haptic feedback and parallax effects.
+- **Fast Scroller:** Material You alphabetical fast scroller with letter popup indicator and automatic fade-out.
 - **Instant Search:** Filter installed applications in real time.
 - **Customizable Layout:** Choose between 4 and 6 columns.
 - **Icon Scaling:** Independently adjust application icon sizes from 80% to 120%.
@@ -73,6 +75,7 @@ Built with modern Android technologies, ForkyLauncher combines a minimalist inte
 - **Dynamic Calendar Icons:** Automatically refresh calendar icons at midnight and on date changes.
 - **Icon Masking:** Supports `<iconback>`, `<iconmask>`, `<iconupon>` and `<scale>` fallback mechanisms.
 - **Themed Monochrome Icons:** Material You monochrome icons on the home screen and dock.
+- **Per-App Icon Overrides:** Customize individual application icons directly from the long-press menu.
 - **Optical Icon Balancing:** Maintains consistent visual sizing between icon pack assets and system fallback icons.
 
 ### Application Shortcuts & Management
@@ -127,6 +130,7 @@ adb shell dumpsys gfxinfo dev.azagra.forkyhome
 - Native reveal animations using `ActivityOptions.makeClipRevealAnimation`.
 - Android 15+ Predictive Back support through `android:enableOnBackInvokedCallback="true"`.
 - Native Android widget integration through `AppWidgetHost`.
+- On-device notification counting through `NotificationListenerService`.
 - System biometric authentication through `BiometricPrompt`.
 - Multi-user application discovery through `LauncherApps.profiles`.
 
@@ -134,7 +138,7 @@ adb shell dumpsys gfxinfo dev.azagra.forkyhome
 
 ## Privacy & Security
 
-Privacy is a fundamental part of ForkyLauncher's architecture.
+Privacy is a fundamental part of ForkyHome's architecture.
 
 The launcher is designed to operate locally on your device without requiring network connectivity.
 
@@ -170,7 +174,7 @@ Authentication is required before launching protected applications or changing t
 
 | Specification | Details |
 |---|---|
-| Application | ForkyLauncher |
+| Application | ForkyHome |
 | Package | `dev.azagra.forkyhome` |
 | Minimum Android | Android 14 (API 34) |
 | Target Android | Android 16 (API 36) |
@@ -184,7 +188,7 @@ Authentication is required before launching protected applications or changing t
 
 ### Multi-Profile Support
 
-ForkyLauncher queries application activities across active Android user profiles through `LauncherApps.profiles`.
+ForkyHome queries application activities across active Android user profiles through `LauncherApps.profiles`.
 
 Supported environments include:
 
@@ -196,7 +200,7 @@ Supported environments include:
 
 ## Permissions & System Integration
 
-ForkyLauncher uses Android system APIs to provide home screen functionality.
+ForkyHome uses Android system APIs to provide home screen functionality.
 
 Some optional features require additional system permissions or user authorization:
 
@@ -204,9 +208,12 @@ Some optional features require additional system permissions or user authorizati
 |---|---|
 | Application discovery | `LauncherApps` |
 | Home screen widgets | `AppWidgetHost` |
+| Notification badges | `NotificationListenerService` |
+| Upcoming calendar events | `READ_CALENDAR` |
 | Notification shade gesture | `EXPAND_STATUS_BAR` |
-| Double-tap to sleep | Accessibility Service |
-| Protected applications | `BiometricPrompt` |
+| Double-tap to sleep | `BIND_ACCESSIBILITY_SERVICE` |
+| Protected applications | `USE_BIOMETRIC` (`BiometricPrompt`) |
+| Application uninstall requests | `REQUEST_DELETE_PACKAGES` |
 | Application package updates | Package broadcasts |
 | Scheduled alarm display | `AlarmManager` |
 
@@ -229,7 +236,7 @@ Optional functionality may require explicit configuration or authorization throu
 
 ## License
 
-ForkyLauncher is free and open-source software distributed under the **GNU General Public License v3.0 (GPL-3.0)**.
+ForkyHome is free and open-source software distributed under the **GNU General Public License v3.0 (GPL-3.0)**.
 
 See [LICENSE](LICENSE) for the complete license text.
 
