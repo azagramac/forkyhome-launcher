@@ -13,7 +13,7 @@ class Container(app: Application) {
     val settings = SettingsStore(app)
     val apps = AppRepository(app, scope)
 
-    val homeEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val homeEvents = MutableSharedFlow<Boolean>(extraBufferCapacity = 1)
 
     @Volatile
     var currentPage = 0
