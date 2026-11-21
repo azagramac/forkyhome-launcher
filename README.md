@@ -1,8 +1,7 @@
 <p align="center">
-  <img src="https://developer.android.com/static/images/brand/android-head_3D.svg" width="96" alt="Android" />
+  <img src="https://github.com/user-attachments/assets/40396efd-92da-412e-9ad2-bb43c99a80bf" width="128" alt="icon" />
+  <h1 align="center">ForkyHome</h1>
 </p>
-
-<h1 align="center">ForkyHome</h1>
 
 <p align="center">
   A lightweight, high-performance Android home screen launcher built with <strong>Kotlin</strong> and <strong>Jetpack Compose</strong>, designed with <strong>Material 3 / Material You</strong>.
@@ -88,3 +87,8 @@ ForkyHome is designed with strict local-only privacy:
 * **Icon Pack Engine**: Compatible with standard third-party Android icon packs supporting `appfilter.xml` (`res/xml`, `res/raw`, or `assets`), `appmap.xml` and `theme_resources.xml` fallbacks, dynamic `<calendar>` icons with automatic midnight/date-change refresh, optical size balancing between pack icons and system fallbacks when a pack is active, freeform pack preservation, and `<iconback>`, `<iconmask>`, `<iconupon>`, `<scale>` fallback masking.
 * **Themed Monochrome Icons**: Material You monochrome icon rendering on the home screen and dock using `AdaptiveIconDrawable.monochrome`.
 * **App Shortcuts & Badges**: Long-press context menu with dynamic/manifest app shortcuts, app info, and uninstall actions. *(Note: `NotificationCounter` `NotificationListenerService` is included in source and commented out in `AndroidManifest.xml` by default for Android 15+ sideload Play Protect compatibility).*
+
+<p align="center">
+  <img src="https://developer.android.com/static/images/brand/android-head_3D.svg" width="96" alt="Android" />
+  <h3 align="center">Powered by Android</h3>
+</p>
