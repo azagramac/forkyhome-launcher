@@ -5,6 +5,10 @@ on:
     branches-ignore:
       - main
       - master
+    paths-ignore:
+      - "README.md"
+      - "PRIVACY.md"
+      - "LICENSE"
   workflow_dispatch:
 
 permissions:
