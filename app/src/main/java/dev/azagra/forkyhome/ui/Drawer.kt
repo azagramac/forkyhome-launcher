@@ -286,8 +286,8 @@ fun AppDrawer(
         }
         val drawerLabelStyle = MaterialTheme.typography.labelSmall
         val resolvedLabelStyle = remember(drawerLabelStyle, on) { drawerLabelStyle.copy(color = on) }
-        val badgeBg = MaterialTheme.colorScheme.primary
-        val badgeFg = MaterialTheme.colorScheme.onPrimary
+        val badgeBg = NotificationBadgeRed
+        val badgeFg = NotificationBadgeText
 
         var pressedKey by remember { mutableStateOf<String?>(null) }
         var longPressedKey by remember { mutableStateOf<String?>(null) }

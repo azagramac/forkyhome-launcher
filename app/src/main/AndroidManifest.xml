@@ -110,14 +110,7 @@
                 android:resource="@xml/accessibility_lock_service" />
         </service>
 
-        <!--
-            NOTA: Google Play Protect (Protección contra fraudes mejorada en Android 15+)
-            bloquea automáticamente cualquier APK instalado fuera de Google Play Store
-            que declare BIND_NOTIFICATION_LISTENER_SERVICE.
-            Descomenta este <service> únicamente si distribuyes la app desde Google Play Store
-            o si la instalas por cable mediante `adb install`.
-        -->
-        <!--
+        <!-- Contador de notificaciones. Si Play Protect bloquea la instalación, comenta este servicio. -->
         <service
             android:name=".notif.NotificationCounter"
             android:exported="true"
@@ -127,6 +120,5 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
-        -->
     </application>
 </manifest>

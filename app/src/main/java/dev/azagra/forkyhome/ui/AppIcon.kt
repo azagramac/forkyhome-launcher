@@ -5,6 +5,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -19,7 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.material3.Badge
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -121,8 +124,8 @@ fun AppIcon(
     onDrag: (posInRoot: Offset) -> Unit = {},
     onDragEnd: () -> Unit = {},
     labelStyle: TextStyle = MaterialTheme.typography.labelSmall,
-    badgeContainerColor: Color = MaterialTheme.colorScheme.primary,
-    badgeContentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    badgeContainerColor: Color = NotificationBadgeRed,
+    badgeContentColor: Color = NotificationBadgeText,
 ) {
     var menu by remember { mutableStateOf(false) }
     var pressingDown by remember { mutableStateOf(false) }
@@ -280,6 +283,40 @@ fun DrawerAppIcon(
     }
 }
 
+internal val NotificationBadgeRed = Color(0xFFFF3B30)
+internal val NotificationBadgeText = Color.White
+
+/** Globo con el número de notificaciones: círculo rojo (cápsula si hay 2+ dígitos) con el número en blanco. */
+@Composable
+private fun NotificationBadge(
+    count: Int,
+    containerColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val text = if (count > 99) "99+" else count.toString()
+    Box(
+        modifier = modifier
+            .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
+            .background(containerColor, CircleShape)
+            .padding(horizontal = if (text.length > 1) 6.dp else 0.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        BasicText(
+            text = text,
+            maxLines = 1,
+            softWrap = false,
+            style = TextStyle(
+                color = contentColor,
+                fontSize = 12.sp,
+                lineHeight = 12.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            ),
+        )
+    }
+}
+
 @Composable
 private fun AppIconContent(
     bitmap: androidx.compose.ui.graphics.ImageBitmap,
@@ -303,11 +340,12 @@ private fun AppIconContent(
                 modifier = Modifier.size(iconSize),
             )
             if (badge > 0) {
-                Badge(
-                    modifier = Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-2).dp),
+                NotificationBadge(
+                    count = badge,
                     containerColor = badgeContainerColor,
                     contentColor = badgeContentColor,
-                ) { Text(if (badge > 99) "99+" else badge.toString()) }
+                    modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-6).dp),
+                )
             }
         }
         if (showLabel) {
