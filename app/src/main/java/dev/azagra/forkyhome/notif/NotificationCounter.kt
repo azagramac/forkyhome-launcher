@@ -20,9 +20,19 @@ class NotificationCounter : NotificationListenerService() {
 
     private fun recompute() {
         val active = runCatching { activeNotifications }.getOrNull() ?: return
-        counts.value = active
-            .filter { !it.isOngoing && (it.notification.flags and Notification.FLAG_GROUP_SUMMARY) == 0 }
-            .groupingBy { it.packageName }
-            .eachCount()
+        val nonOngoing = active.filter { !it.isOngoing }
+        val groupsWithChildren = nonOngoing
+            .filter { (it.notification.flags and Notification.FLAG_GROUP_SUMMARY) == 0 }
+            .mapNotNullTo(HashSet()) { it.groupKey }
+
+        counts.value = nonOngoing
+            .filter { sbn ->
+                val isSummary = (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0
+                !isSummary || sbn.groupKey !in groupsWithChildren
+            }
+            .groupBy { it.packageName }
+            .mapValues { (_, list) ->
+                list.sumOf { it.notification.number.coerceAtLeast(1) }
+            }
     }
 }
