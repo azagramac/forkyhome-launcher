@@ -294,7 +294,7 @@ private fun NotificationBadge(
     contentColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    val text = if (count > 99) "99+" else count.toString()
+    val text = count.toString()
     Box(
         modifier = modifier
             .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
@@ -344,7 +344,7 @@ private fun AppIconContent(
                     count = badge,
                     containerColor = badgeContainerColor,
                     contentColor = badgeContentColor,
-                    modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-6).dp),
+                    modifier = Modifier.align(Alignment.TopEnd).offset(x = 5.dp, y = (-5).dp),
                 )
             }
         }
