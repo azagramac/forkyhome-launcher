@@ -420,6 +420,14 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         }
     }
 
+    val backupController = rememberBackupController(
+        settings = s,
+        allApps = apps,
+        packsProvider = { repo.packs.installed() },
+        onAuthenticate = { action -> authenticateUser(action) },
+        onApplyRestored = { restored -> store.restore(restored) },
+    )
+
     val homeCols = s.homeCols.coerceIn(4, 6)
     val homeRows = s.homeRows.coerceIn(4, 7)
     val dockMarginPx = with(density) { 20.dp.toPx() }
@@ -1586,6 +1594,8 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 packs = packs,
                 allApps = apps,
                 onAuthenticate = { action -> authenticateUser(action) },
+                onExportBackup = backupController.startExport,
+                onImportBackup = backupController.startImport,
                 onChange = { edit(it) },
                 onClose = { showSettings = false },
             )
@@ -1621,6 +1631,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         OnboardingOverlay(
             dockBoundsInRoot = dockBoundsInRoot,
             gridBoundsInRoot = gridBoundsInRoot,
+            onRestoreBackup = backupController.startImport,
             onFinish = { edit { it.copy(onboardingDone = true) } },
         )
     }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,6 +56,7 @@ import kotlin.math.roundToInt
 fun OnboardingOverlay(
     dockBoundsInRoot: Rect,
     gridBoundsInRoot: Rect,
+    onRestoreBackup: () -> Unit = {},
     onFinish: () -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -193,6 +195,15 @@ fun OnboardingOverlay(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
+
+                if (step == 0) {
+                    OutlinedButton(
+                        onClick = onRestoreBackup,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.backup_restore_action))
+                    }
+                }
 
                 if (step == 2 && !isDefaultHome && roleManager != null) {
                     FilledTonalButton(

@@ -84,6 +84,7 @@ Built with modern Android technologies, ForkyHome combines a minimalist interfac
 - **Application Information:** Open the native Android application information screen.
 - **Uninstall Actions:** Access application removal through the native Android system interface.
 - **App Visibility:** Hide applications from the app drawer without uninstalling them.
+- **Backup & Restore:** Export and import your workspace layout, folders, dock, custom icons, and settings via Android's Storage Access Framework (supports plain JSON or optional AES-256-GCM password encryption, plus direct restore from onboarding on a clean install).
 
 ---
 
@@ -156,6 +157,8 @@ The launcher is designed to operate locally on your device without requiring net
 - Hidden application settings remain on the device.
 - Icon cache files are stored locally.
 - `android:allowBackup="false"` disables Android cloud backup for application data.
+- Manual backups are saved locally through Android's Storage Access Framework (`BiometricPrompt`-gated on export, with optional AES-256-GCM + PBKDF2 password encryption).
+- The hidden/protected apps screen enables `FLAG_SECURE` to block screenshots and screen recording.
 
 ### Protected Applications
 

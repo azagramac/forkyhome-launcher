@@ -159,4 +159,32 @@
     <string name="action_skip">Saltar</string>
     <string name="action_next">Siguiente</string>
     <string name="action_got_it">Entendido</string>
+
+    <string name="section_backup_restore">Copia de seguridad</string>
+    <string name="settings_backup_export">Exportar configuración</string>
+    <string name="settings_backup_export_desc">Guarda tu diseño, ajustes y listas de apps en un fichero</string>
+    <string name="settings_backup_import">Importar configuración</string>
+    <string name="settings_backup_import_desc">Restaura tu diseño y ajustes desde una copia</string>
+    <string name="backup_restore_action">Restaurar desde copia</string>
+    <string name="backup_export_dialog_title">Exportar configuración</string>
+    <string name="backup_encrypt_toggle">Proteger con contraseña</string>
+    <string name="backup_encrypt_toggle_desc">Cifra el fichero JSON con AES-256. Sin contraseña se guarda un JSON plano.</string>
+    <string name="backup_password_label">Contraseña</string>
+    <string name="backup_password_confirm_label">Confirmar contraseña</string>
+    <string name="backup_password_empty">Introduce una contraseña</string>
+    <string name="backup_password_mismatch">Las contraseñas no coinciden</string>
+    <string name="backup_export_continue">Elegir ubicación</string>
+    <string name="backup_import_password_title">Copia cifrada</string>
+    <string name="backup_import_password_desc">Introduce la contraseña con la que se cifró este fichero.</string>
+    <string name="backup_import_action">Restaurar</string>
+    <string name="backup_wrong_password">Contraseña incorrecta</string>
+    <string name="backup_export_success">Copia exportada</string>
+    <string name="backup_export_error">No se pudo exportar la copia</string>
+    <string name="backup_invalid_file">Fichero de copia no válido o incompatible</string>
+    <string name="backup_restore_done_title">Configuración restaurada</string>
+    <string name="backup_restore_done_ok">Se han restaurado tu diseño y ajustes.</string>
+    <string name="backup_restore_skipped_widgets">• %1$d widget(s) deben añadirse de nuevo manualmente.</string>
+    <string name="backup_restore_missing_apps">• %1$d app(s) de la copia no están instaladas en este dispositivo.</string>
+    <string name="backup_restore_missing_pack">• El pack de iconos guardado no está instalado; se usan los del sistema.</string>
+    <string name="backup_restore_permissions_hint">• Vuelve a activar los permisos del sistema en Ajustes si usas contador de notificaciones, calendario o doble toque para apagar.</string>
 </resources>

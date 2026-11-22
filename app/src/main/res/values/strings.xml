@@ -161,4 +161,32 @@
     <string name="action_skip">Skip</string>
     <string name="action_next">Next</string>
     <string name="action_got_it">Got it</string>
+
+    <string name="section_backup_restore">Backup &amp; restore</string>
+    <string name="settings_backup_export">Export configuration</string>
+    <string name="settings_backup_export_desc">Save layout, settings, and app lists to a file</string>
+    <string name="settings_backup_import">Import configuration</string>
+    <string name="settings_backup_import_desc">Restore layout and settings from a backup file</string>
+    <string name="backup_restore_action">Restore from backup</string>
+    <string name="backup_export_dialog_title">Export configuration</string>
+    <string name="backup_encrypt_toggle">Protect with password</string>
+    <string name="backup_encrypt_toggle_desc">Encrypts the JSON file with AES-256. Without a password, a plain JSON file is saved.</string>
+    <string name="backup_password_label">Password</string>
+    <string name="backup_password_confirm_label">Confirm password</string>
+    <string name="backup_password_empty">Enter a password</string>
+    <string name="backup_password_mismatch">Passwords do not match</string>
+    <string name="backup_export_continue">Choose location</string>
+    <string name="backup_import_password_title">Encrypted backup</string>
+    <string name="backup_import_password_desc">Enter the password used to encrypt this backup file.</string>
+    <string name="backup_import_action">Restore</string>
+    <string name="backup_wrong_password">Incorrect password</string>
+    <string name="backup_export_success">Backup exported</string>
+    <string name="backup_export_error">Could not export backup</string>
+    <string name="backup_invalid_file">Invalid or unsupported backup file</string>
+    <string name="backup_restore_done_title">Configuration restored</string>
+    <string name="backup_restore_done_ok">Your layout and settings have been restored.</string>
+    <string name="backup_restore_skipped_widgets">• %1$d widget(s) must be re-added manually.</string>
+    <string name="backup_restore_missing_apps">• %1$d app(s) from the backup are not installed on this device.</string>
+    <string name="backup_restore_missing_pack">• The saved icon pack is not installed; system icons are used instead.</string>
+    <string name="backup_restore_permissions_hint">• Re-enable system permissions in Settings if you use notification badges, calendar events, or double-tap to sleep.</string>
 </resources>

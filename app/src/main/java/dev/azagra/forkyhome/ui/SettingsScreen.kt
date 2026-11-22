@@ -61,8 +61,10 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -143,6 +145,8 @@ fun SettingsScreen(
     packs: List<IconPacks.Pack>,
     allApps: List<AppInfo> = emptyList(),
     onAuthenticate: ((() -> Unit) -> Unit)? = null,
+    onExportBackup: () -> Unit = {},
+    onImportBackup: () -> Unit = {},
     onChange: ((LauncherSettings) -> LauncherSettings) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -479,6 +483,25 @@ fun SettingsScreen(
                                         }
                                     }
                                 }
+                            }
+
+                            SectionGroup(
+                                title = stringResource(R.string.section_backup_restore),
+                                icon = Icons.Default.Share,
+                            ) {
+                                DashboardCategoryRow(
+                                    icon = Icons.Default.Share,
+                                    title = stringResource(R.string.settings_backup_export),
+                                    subtitle = stringResource(R.string.settings_backup_export_desc),
+                                    onClick = onExportBackup,
+                                )
+                                CardDivider()
+                                DashboardCategoryRow(
+                                    icon = Icons.Default.Refresh,
+                                    title = stringResource(R.string.settings_backup_import),
+                                    subtitle = stringResource(R.string.settings_backup_import_desc),
+                                    onClick = onImportBackup,
+                                )
                             }
                         }
 
