@@ -13,9 +13,11 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -440,6 +442,19 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                     store.addHomeItem(ItemKind.APP, newApp.key, 1, 1, pagerState.currentPage)
                 }
             }
+        }
+    }
+    val revealProgress = remember { Animatable(1f) }
+    LaunchedEffect(Unit) {
+        container.revealEvents.collect {
+            revealProgress.snapTo(0f)
+            revealProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = 350,
+                    easing = LinearOutSlowInEasing,
+                ),
+            )
         }
     }
     LaunchedEffect(pagerState.currentPage) { container.currentPage = pagerState.currentPage }
@@ -961,14 +976,16 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 .graphicsLayer {
                     compositingStrategy = CompositingStrategy.ModulateAlpha
                     val p = drawer.progress.coerceIn(0f, 1f)
+                    val r = revealProgress.value.coerceIn(0f, 1f)
+                    val revealScale = 0.88f + 0.12f * r
                     if (p <= 0.001f) {
-                        alpha = 1f
-                        scaleX = 1f
-                        scaleY = 1f
+                        alpha = r
+                        scaleX = revealScale
+                        scaleY = revealScale
                         translationY = 0f
                     } else {
-                        alpha = (1f - p * 1.1f).coerceIn(0f, 1f)
-                        val sScale = 1f - 0.04f * p
+                        alpha = (1f - p * 1.1f).coerceIn(0f, 1f) * r
+                        val sScale = (1f - 0.04f * p) * revealScale
                         scaleX = sScale
                         scaleY = sScale
                         translationY = -p * 24.dp.toPx()
