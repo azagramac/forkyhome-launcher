@@ -344,7 +344,7 @@ private fun AppIconContent(
                     count = badge,
                     containerColor = badgeContainerColor,
                     contentColor = badgeContentColor,
-                    modifier = Modifier.align(Alignment.TopEnd).offset(x = 5.dp, y = (-5).dp),
+                    modifier = Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp),
                 )
             }
         }
