@@ -13,7 +13,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -445,14 +445,22 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         }
     }
     val revealProgress = remember { Animatable(1f) }
+    val emphasizedDecelerate = remember { CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f) }
+    LaunchedEffect(Unit) {
+        container.prepareRevealEvents.collect {
+            revealProgress.snapTo(0f)
+        }
+    }
     LaunchedEffect(Unit) {
         container.revealEvents.collect {
-            revealProgress.snapTo(0f)
+            if (revealProgress.value > 0.99f) {
+                revealProgress.snapTo(0f)
+            }
             revealProgress.animateTo(
                 targetValue = 1f,
                 animationSpec = tween(
-                    durationMillis = 350,
-                    easing = LinearOutSlowInEasing,
+                    durationMillis = 240,
+                    easing = emphasizedDecelerate,
                 ),
             )
         }
@@ -977,14 +985,15 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                     compositingStrategy = CompositingStrategy.ModulateAlpha
                     val p = drawer.progress.coerceIn(0f, 1f)
                     val r = revealProgress.value.coerceIn(0f, 1f)
-                    val revealScale = 0.88f + 0.12f * r
+                    val revealScale = 0.94f + 0.06f * r
+                    val revealAlpha = 0.2f + 0.8f * r
                     if (p <= 0.001f) {
-                        alpha = r
+                        alpha = revealAlpha
                         scaleX = revealScale
                         scaleY = revealScale
                         translationY = 0f
                     } else {
-                        alpha = (1f - p * 1.1f).coerceIn(0f, 1f) * r
+                        alpha = (1f - p * 1.1f).coerceIn(0f, 1f) * revealAlpha
                         val sScale = (1f - 0.04f * p) * revealScale
                         scaleX = sScale
                         scaleY = sScale

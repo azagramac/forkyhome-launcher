@@ -21,6 +21,7 @@ import dev.azagra.forkyhome.data.LauncherSettings
 import dev.azagra.forkyhome.ui.LauncherScreen
 import dev.azagra.forkyhome.ui.LauncherTheme
 import dev.azagra.forkyhome.widgets.WidgetController
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -76,7 +77,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         applyHighRefreshRate()
-        syncLauncherDrawerIconVisibility()
+        lifecycleScope.launch(Dispatchers.IO) {
+            syncLauncherDrawerIconVisibility()
+        }
     }
 
     private fun applyHighRefreshRate() {
@@ -130,6 +133,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         isStopped = true
+        container.prepareRevealEvents.tryEmit(Unit)
         widgets.host.stopListening()
     }
 
