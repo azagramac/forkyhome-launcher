@@ -43,6 +43,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: 8.14
+          build-scan-publish: true
+          build-scan-terms-of-use-url: "https://gradle.com/help/legal-terms-of-use"
+          build-scan-terms-of-use-agree: "yes"
 
       - name: 🔐 Prepare Debug Signing Keystore
         env:
