@@ -60,6 +60,10 @@ class SettingsStore(private val ctx: Context) {
         ctx.store.edit { writeSettingsToPreferences(it, block(readSettingsFromPreferences(it))) }
     }
 
+    suspend fun restore(settings: LauncherSettings) {
+        ctx.store.edit { writeSettingsToPreferences(it, settings) }
+    }
+
     suspend fun addHomeItem(kind: ItemKind, data: String, sx: Int, sy: Int, page: Int): Boolean {
         var ok = false
         update { s ->
