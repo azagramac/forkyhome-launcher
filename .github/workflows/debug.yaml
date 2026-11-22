@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -99,54 +99,6 @@ jobs:
           done
           ls -lh
 
-      - name: 📝 Generate Changelog (Commits & Issues since last testing upload)
-        run: |
-          git fetch --tags --force || true
-          PREV_COMMIT=$(git rev-list -n 1 testing 2>/dev/null || true)
-          if [ -n "$PREV_COMMIT" ] && [ "$PREV_COMMIT" != "${{ github.sha }}" ]; then
-            RANGE="${PREV_COMMIT}..HEAD"
-          else
-            RANGE="-n 20 HEAD"
-          fi
-
-          python3 - "$RANGE" "${{ github.ref_name }}" "${{ github.run_number }}" > release_notes.md << 'EOF'
-          import re
-          import subprocess
-          import sys
-
-          git_range, branch, run_num = sys.argv[1:4]
-          cmd = ["git", "log"] + git_range.split() + ["--no-merges", "--pretty=format:%h|%s|%b%x1e"]
-          raw = subprocess.check_output(cmd, text=True, errors="replace")
-
-          commits = []
-          issues = set()
-          for entry in raw.split("\x1e"):
-              entry = entry.strip()
-              if not entry:
-                  continue
-              parts = entry.split("|", 2)
-              sha = parts[0]
-              subj = parts[1] if len(parts) > 1 else ""
-              body = parts[2] if len(parts) > 2 else ""
-              commits.append(f"- {subj} (`{sha}`)")
-              for m in re.findall(r"#(\d+)", f"{subj}\n{body}"):
-                  issues.add(int(m))
-
-          print(f"## 🧪 ForkyHome Testing (Build #{run_num} · `{branch}`)\n")
-          print("### 📋 Issues")
-          if issues:
-              for num in sorted(issues):
-                  print(f"- #{num}")
-          else:
-              print("- No referenced issues since last upload.")
-          print("\n### 📝 Commits")
-          if commits:
-              print("\n".join(commits))
-          else:
-              print("- No new commits since last upload.")
-          EOF
-          cat release_notes.md
-
       - name: 📊 Generate Build & Test Summary
         if: always()
         run: |
@@ -175,19 +127,6 @@ jobs:
           fi
           echo "KEYSTORE_FILE=" >> "$GITHUB_ENV"
           echo "KEY_ALIAS=" >> "$GITHUB_ENV"
-
-      - name: 🚀 Publish Testing GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: testing
-          target_commitish: ${{ github.sha }}
-          name: ForkyHome v${{ env.VERSION }} (Build #${{ github.run_number }})
-          body_path: release_notes.md
-          prerelease: true
-          make_latest: false
-          files: |
-            dist/*.apk
-            dist/*.apk.sha256
 
       - name: 📲 Send Debug APK to Telegram
         env:
@@ -250,8 +189,7 @@ jobs:
               f"🏷 <b>Versión:</b> <code>v{version}</code> · <b>Build:</b> <code>#{run_num}</code>\n"
               f"🌿 <b>Rama:</b> <code>{branch}</code>\n"
               f"📦 <b>APK:</b> <code>{html.escape(apk_name)}</code> ({apk_size})\n"
-              f"🔒 <b>SHA-256:</b> <code>{apk_sha256[:16]}...</code>\n"
-              f"🔗 <a href=\"{repo_url}/releases/tag/testing\">Ver Release en GitHub</a>"
+              f"🔒 <b>SHA-256:</b> <code>{apk_sha256[:16]}...</code>"
           )
 
           issues_block = ""
@@ -291,4 +229,4 @@ jobs:
       - name: 🔒 Final Runner Secret & Workspace Cleanup
         if: always()
         run: |
-          rm -rf dist release_notes.md "$RUNNER_TEMP"/*.jks
+          rm -rf dist "$RUNNER_TEMP"/*.jks
