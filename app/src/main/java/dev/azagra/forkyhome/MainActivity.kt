@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         if (isStopped) {
             isStopped = false
-            container.revealEvents.tryEmit(Unit)
+            container.revealEvents.tryEmit(true)
         }
         widgets.host.startListening()
     }
@@ -133,7 +133,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         isStopped = true
-        container.prepareRevealEvents.tryEmit(Unit)
+        container.revealEvents.tryEmit(false)
         widgets.host.stopListening()
     }
 
