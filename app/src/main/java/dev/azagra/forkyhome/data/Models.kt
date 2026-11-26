@@ -46,6 +46,8 @@ data class AppShortcut(
     val id: String,
     val pkg: String,
     val label: String,
+    val user: UserHandle? = null,
+    val icon: ImageBitmap? = null,
 )
 
 @Immutable

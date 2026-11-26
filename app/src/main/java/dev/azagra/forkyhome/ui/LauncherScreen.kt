@@ -171,8 +171,8 @@ internal fun isDropOverDock(
 ): Boolean {
     val isDraggingNonApp = (session.source as? DragSource.Home)?.item?.let { it.kind != ItemKind.APP } == true
     return !isDraggingNonApp &&
-        dockBounds.width > 0f &&
-        posInRoot.y >= (dockBounds.top - topMarginPx)
+            dockBounds.width > 0f &&
+            posInRoot.y >= (dockBounds.top - topMarginPx)
 }
 
 internal fun resolveDockSlot(
@@ -225,8 +225,8 @@ internal fun resolveGridTarget(
     val fracX = exactCol - col
     val fracY = exactRow - row
     val inCenter = session.source is DragSource.Drawer ||
-        session.source is DragSource.Folder ||
-        (fracX in 0.15f..0.85f && fracY in 0.15f..0.85f)
+            session.source is DragSource.Folder ||
+            (fracX in 0.15f..0.85f && fracY in 0.15f..0.85f)
     return Triple(col, row, inCenter)
 }
 
@@ -250,17 +250,17 @@ internal fun placeOrResizeWidget(
 
     val overlapsWidget = otherOnPage.any { other ->
         other.kind == ItemKind.WIDGET &&
-            safeCol < (other.col + other.spanX) &&
-            (safeCol + safeSpanX) > other.col &&
-            safeRow < (other.row + other.spanY) &&
-            (safeRow + safeSpanY) > other.row
+                safeCol < (other.col + other.spanX) &&
+                (safeCol + safeSpanX) > other.col &&
+                safeRow < (other.row + other.spanY) &&
+                (safeRow + safeSpanY) > other.row
     }
     if (overlapsWidget) return null
 
     val displaced = otherOnPage.filter { other ->
         other.kind != ItemKind.WIDGET &&
-            other.col in safeCol until (safeCol + safeSpanX) &&
-            other.row in safeRow until (safeRow + safeSpanY)
+                other.col in safeCol until (safeCol + safeSpanX) &&
+                other.row in safeRow until (safeRow + safeSpanY)
     }
 
     if (displaced.isEmpty()) {
@@ -306,10 +306,12 @@ internal fun placeOrResizeWidget(
                 spanX = safeSpanX,
                 spanY = safeSpanY,
             )
+
             item.id in relocated -> {
                 val (nc, nr) = relocated.getValue(item.id)
                 item.copy(col = nc, row = nr)
             }
+
             else -> item
         }
     }
@@ -328,6 +330,7 @@ internal fun removeAppFromFolderInList(
         remaining.size == 1 -> home.map {
             if (it.id == folderId) it.copy(kind = ItemKind.APP, data = remaining.first()) else it
         }
+
         else -> home.map {
             if (it.id == folderId) it.copy(data = payload.copy(apps = remaining).encode()) else it
         }
@@ -402,7 +405,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 .setSubtitle(ctx.getString(R.string.auth_protected_app_desc))
                 .setAllowedAuthenticators(
                     BiometricManager.Authenticators.BIOMETRIC_WEAK or
-                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                            BiometricManager.Authenticators.DEVICE_CREDENTIAL
                 )
                 .build()
             prompt.authenticate(
@@ -454,6 +457,13 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     LaunchedEffect(pagerState.currentPage) { container.currentPage = pagerState.currentPage }
     LaunchedEffect(Unit) {
         container.homeEvents.collect { animate ->
+            // Swipe-up desde el borde inferior (navegación por gestos) estando ya en el escritorio:
+            // el sistema captura ese gesto y solo entrega el intent de "inicio"; lo usamos para abrir el cajón.
+            val gestureNav = Settings.Secure.getInt(ctx.contentResolver, "navigation_mode", 0) == 2
+            val alreadyAtHome = animate && gestureNav &&
+                    !showSettings && !showMenu && !showWidgets && openFolderId == null &&
+                    editingIconApp == null && resizingWidgetId == null && dragSession == null &&
+                    !drawer.isOpen && pagerState.currentPage == 0 && !pagerState.isScrollInProgress
             showSettings = false
             showMenu = false
             openFolderId = null
@@ -461,8 +471,12 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             resizingWidgetId = null
             dragSession = null
             isHoldingItem = false
-            if (animate) {
-                if (drawer.isOpen) drawer.animateTo(0f) else if (pagerState.currentPage != 0) pagerState.animateScrollToPage(0)
+            if (alreadyAtHome) {
+                drawer.animateTo(1f)
+            } else if (animate) {
+                if (drawer.isOpen) drawer.animateTo(0f) else if (pagerState.currentPage != 0) pagerState.animateScrollToPage(
+                    0
+                )
             } else {
                 // Returning from another app: snap immediately so the user doesn't see
                 // the drawer/pager closing animation on top of the system's app-exit transition.
@@ -476,10 +490,17 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     BackHandler(enabled = showSettings) { showSettings = false }
     BackHandler(enabled = openFolderId != null) { openFolderId = null }
     BackHandler(enabled = resizingWidgetId != null) { resizingWidgetId = null }
-    BackHandler(enabled = drawerVisible && !showSettings && openFolderId == null && resizingWidgetId == null) { drawer.animateTo(0f) }
+    BackHandler(enabled = drawerVisible && !showSettings && openFolderId == null && resizingWidgetId == null) {
+        drawer.animateTo(
+            0f
+        )
+    }
 
     fun toast(m: String) = Toast.makeText(ctx, m, Toast.LENGTH_SHORT).show()
-    fun edit(block: (LauncherSettings) -> LauncherSettings) { scope.launch { store.update(block) } }
+    fun edit(block: (LauncherSettings) -> LauncherSettings) {
+        scope.launch { store.update(block) }
+    }
+
     fun checkUnlocked(): Boolean {
         if (latestSettings.lockDesktop) {
             toast(ctx.getString(R.string.toast_desktop_locked))
@@ -487,6 +508,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         }
         return true
     }
+
     fun runWithProtection(pkg: String, action: () -> Unit) {
         if (pkg in latestSettings.protectedApps) {
             authenticateUser(action)
@@ -494,24 +516,29 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             action()
         }
     }
+
     fun details(pkg: String) = ctx.startActivity(
         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     )
+
     fun uninstall(pkg: String) = ctx.startActivity(
         Intent(Intent.ACTION_DELETE, Uri.parse("package:$pkg")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     )
+
     fun openApp(app: AppInfo) {
         runWithProtection(app.pkg) {
             repo.launchApp(ctx, app)
         }
     }
+
     fun shortcutActions(app: AppInfo): List<MenuAction> =
-        repo.getShortcuts(app.pkg).map { sc ->
-            MenuAction(sc.label, Icons.Default.PlayArrow, isShortcut = true) {
+        repo.getShortcuts(app.pkg, app.user).map { sc ->
+            MenuAction(sc.label, Icons.Default.PlayArrow, isShortcut = true, iconBitmap = sc.icon) {
                 runWithProtection(app.pkg) { repo.launchShortcut(sc) }
             }
         }
+
     fun common(app: AppInfo): List<MenuAction> = buildList {
         addAll(shortcutActions(app))
         val isProtected = app.pkg in latestSettings.protectedApps
@@ -534,12 +561,14 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
         add(MenuAction(ctx.getString(R.string.action_app_info), Icons.Default.Info) { details(app.pkg) })
         add(MenuAction(ctx.getString(R.string.action_uninstall), Icons.Default.Delete) { uninstall(app.pkg) })
     }
+
     fun drawerActions(app: AppInfo): List<MenuAction> = buildList {
         add(MenuAction(ctx.getString(R.string.action_hide_app), Icons.Default.Close) {
             edit { st -> st.copy(hiddenApps = st.hiddenApps + app.pkg) }
         })
         addAll(common(app))
     }
+
     fun homeActions(item: HomeItem, app: AppInfo) = listOf(
         MenuAction(ctx.getString(R.string.action_remove_from_home), Icons.Default.Close) {
             if (checkUnlocked()) edit { st ->
@@ -548,6 +577,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             }
         },
     ) + common(app)
+
     fun dockActions(app: AppInfo) = listOf(
         MenuAction(ctx.getString(R.string.action_remove_from_dock), Icons.Default.Close) {
             if (checkUnlocked()) edit { st -> st.copy(dock = st.dock.filter { it != app.key }) }
@@ -582,8 +612,14 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                 val visibleApps = payload.apps.filter { it in appMap }
                 val totalCount = visibleApps.size.coerceAtLeast(1)
                 val rowCount = ((totalCount + 2) / 3).coerceAtLeast(1)
-                val relX = (dropPos.x - folderGridBoundsInRoot.left).coerceIn(0f, (folderGridBoundsInRoot.width - 1f).coerceAtLeast(1f))
-                val relY = (dropPos.y - folderGridBoundsInRoot.top).coerceIn(0f, (folderGridBoundsInRoot.height - 1f).coerceAtLeast(1f))
+                val relX = (dropPos.x - folderGridBoundsInRoot.left).coerceIn(
+                    0f,
+                    (folderGridBoundsInRoot.width - 1f).coerceAtLeast(1f)
+                )
+                val relY = (dropPos.y - folderGridBoundsInRoot.top).coerceIn(
+                    0f,
+                    (folderGridBoundsInRoot.height - 1f).coerceAtLeast(1f)
+                )
                 val col = ((relX / folderGridBoundsInRoot.width) * 3).toInt().coerceIn(0, 2)
                 val row = ((relY / folderGridBoundsInRoot.height) * rowCount).toInt().coerceIn(0, rowCount - 1)
                 val targetIndex = (row * 3 + col).coerceIn(0, payload.apps.lastIndex.coerceAtLeast(0))
@@ -639,6 +675,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                             }
                             st.copy(dock = list.take(DOCK_MAX))
                         }
+
                         is DragSource.Home -> {
                             if (src.item.kind != ItemKind.APP) return@edit st
                             val list = st.dock.toMutableList()
@@ -668,6 +705,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                 )
                             }
                         }
+
                         is DragSource.Drawer -> {
                             val appKey = src.app.key
                             val list = st.dock.toMutableList()
@@ -682,6 +720,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                             }
                             st.copy(dock = list.take(DOCK_MAX))
                         }
+
                         is DragSource.Folder -> {
                             val appKey = src.app.key
                             val updatedHome = removeAppFromFolderInList(st.home, src.folderId, appKey)
@@ -699,9 +738,11 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                         }
                     }
                 }
+
                 gridInfo != null -> {
                     val (destCol, destRow, inCenter) = gridInfo
-                    val draggedWidget = (session.source as? DragSource.Home)?.item?.takeIf { it.kind == ItemKind.WIDGET }
+                    val draggedWidget =
+                        (session.source as? DragSource.Home)?.item?.takeIf { it.kind == ItemKind.WIDGET }
                     if (draggedWidget != null) {
                         val updatedHome = placeOrResizeWidget(
                             home = st.home,
@@ -718,18 +759,18 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                     } else {
                         val widgetBlocker = st.home.firstOrNull {
                             it.page == currentPage &&
-                                it.kind == ItemKind.WIDGET &&
-                                destCol in it.col until (it.col + it.spanX) &&
-                                destRow in it.row until (it.row + it.spanY)
+                                    it.kind == ItemKind.WIDGET &&
+                                    destCol in it.col until (it.col + it.spanX) &&
+                                    destRow in it.row until (it.row + it.spanY)
                         }
                         if (widgetBlocker != null) {
                             st
                         } else {
                             val occupant = st.home.firstOrNull {
                                 it.page == currentPage &&
-                                    (it.kind == ItemKind.APP || it.kind == ItemKind.FOLDER) &&
-                                    it.col == destCol &&
-                                    it.row == destRow
+                                        (it.kind == ItemKind.APP || it.kind == ItemKind.FOLDER) &&
+                                        it.col == destCol &&
+                                        it.row == destRow
                             }
                             when (val src = session.source) {
                                 is DragSource.Home -> {
@@ -755,8 +796,18 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                             st.copy(
                                                 home = st.home.map {
                                                     when (it.id) {
-                                                        src.item.id -> it.copy(page = currentPage, col = destCol, row = destRow)
-                                                        occupant.id -> it.copy(page = src.item.page, col = src.item.col, row = src.item.row)
+                                                        src.item.id -> it.copy(
+                                                            page = currentPage,
+                                                            col = destCol,
+                                                            row = destRow
+                                                        )
+
+                                                        occupant.id -> it.copy(
+                                                            page = src.item.page,
+                                                            col = src.item.col,
+                                                            row = src.item.row
+                                                        )
+
                                                         else -> it
                                                     }
                                                 }
@@ -765,11 +816,16 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                     } else {
                                         st.copy(
                                             home = st.home.map {
-                                                if (it.id == src.item.id) it.copy(page = currentPage, col = destCol, row = destRow) else it
+                                                if (it.id == src.item.id) it.copy(
+                                                    page = currentPage,
+                                                    col = destCol,
+                                                    row = destRow
+                                                ) else it
                                             }
                                         )
                                     }
                                 }
+
                                 is DragSource.Dock -> {
                                     val list = st.dock.toMutableList()
                                     if (occupant != null) {
@@ -777,7 +833,10 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                             if (src.index in list.indices) list.removeAt(src.index)
                                             val updatedOccupant = if (occupant.kind == ItemKind.FOLDER) {
                                                 val payload = FolderPayload.decode(occupant.data)
-                                                occupant.copy(data = payload.copy(apps = (payload.apps + src.appKey).distinct()).encode())
+                                                occupant.copy(
+                                                    data = payload.copy(apps = (payload.apps + src.appKey).distinct())
+                                                        .encode()
+                                                )
                                             } else {
                                                 val merged = listOf(occupant.data, src.appKey).distinct()
                                                 if (merged.size < 2) occupant else occupant.copy(
@@ -819,12 +878,15 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                         )
                                     }
                                 }
+
                                 is DragSource.Drawer -> {
                                     val appKey = src.app.key
                                     if (occupant != null) {
                                         val updatedOccupant = if (occupant.kind == ItemKind.FOLDER) {
                                             val payload = FolderPayload.decode(occupant.data)
-                                            occupant.copy(data = payload.copy(apps = (payload.apps + appKey).distinct()).encode())
+                                            occupant.copy(
+                                                data = payload.copy(apps = (payload.apps + appKey).distinct()).encode()
+                                            )
                                         } else {
                                             val merged = listOf(occupant.data, appKey).distinct()
                                             if (merged.size < 2) occupant else occupant.copy(
@@ -850,19 +912,22 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                         st.copy(home = st.home + newHomeItem)
                                     }
                                 }
+
                                 is DragSource.Folder -> {
                                     val appKey = src.app.key
                                     val baseHome = removeAppFromFolderInList(st.home, src.folderId, appKey)
                                     val occupantAfterRemoval = baseHome.firstOrNull {
                                         it.page == currentPage &&
-                                            (it.kind == ItemKind.APP || it.kind == ItemKind.FOLDER) &&
-                                            it.col == destCol &&
-                                            it.row == destRow
+                                                (it.kind == ItemKind.APP || it.kind == ItemKind.FOLDER) &&
+                                                it.col == destCol &&
+                                                it.row == destRow
                                     }
                                     if (occupantAfterRemoval != null) {
                                         val updatedOccupant = if (occupantAfterRemoval.kind == ItemKind.FOLDER) {
                                             val payload = FolderPayload.decode(occupantAfterRemoval.data)
-                                            occupantAfterRemoval.copy(data = payload.copy(apps = (payload.apps + appKey).distinct()).encode())
+                                            occupantAfterRemoval.copy(
+                                                data = payload.copy(apps = (payload.apps + appKey).distinct()).encode()
+                                            )
                                         } else {
                                             val merged = listOf(occupantAfterRemoval.data, appKey).distinct()
                                             if (merged.size < 2) occupantAfterRemoval else occupantAfterRemoval.copy(
@@ -892,6 +957,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                         }
                     }
                 }
+
                 else -> st
             }
             val compactedHome = compactHomePages(nextState.home)
@@ -906,8 +972,8 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     val isDraggingOutsideFolder by remember {
         derivedStateOf {
             isDraggingFromFolder &&
-                folderCardBoundsInRoot.width > 0f &&
-                !folderCardBoundsInRoot.contains(dragPosInRoot)
+                    folderCardBoundsInRoot.width > 0f &&
+                    !folderCardBoundsInRoot.contains(dragPosInRoot)
         }
     }
     val targetDockSlot by remember(dockMarginPx) {
@@ -1257,7 +1323,9 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                     edit { st ->
                         st.copy(
                             home = st.home.map {
-                                if (it.id == activeFolder.id) it.copy(data = payload.copy(title = cleanTitle).encode()) else it
+                                if (it.id == activeFolder.id) it.copy(
+                                    data = payload.copy(title = cleanTitle).encode()
+                                ) else it
                             }
                         )
                     }
@@ -1351,12 +1419,25 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                                     isBeingDragged = (activeDrag?.source as? DragSource.Folder)?.app?.key == app.key,
                                                     actionsProvider = {
                                                         listOf(
-                                                            MenuAction(ctx.getString(R.string.action_remove_from_folder), Icons.Default.Close) {
+                                                            MenuAction(
+                                                                ctx.getString(R.string.action_remove_from_folder),
+                                                                Icons.Default.Close
+                                                            ) {
                                                                 if (!checkUnlocked()) return@MenuAction
-                                                                val remainingCount = payload.apps.count { it != app.key }
+                                                                val remainingCount =
+                                                                    payload.apps.count { it != app.key }
                                                                 edit { st ->
-                                                                    val nextHome = compactHomePages(removeAppFromFolderInList(st.home, activeFolder.id, app.key))
-                                                                    st.copy(home = nextHome, homePages = activePageCount(nextHome))
+                                                                    val nextHome = compactHomePages(
+                                                                        removeAppFromFolderInList(
+                                                                            st.home,
+                                                                            activeFolder.id,
+                                                                            app.key
+                                                                        )
+                                                                    )
+                                                                    st.copy(
+                                                                        home = nextHome,
+                                                                        homePages = activePageCount(nextHome)
+                                                                    )
                                                                 }
                                                                 if (remainingCount <= 1) openFolderId = null
                                                             }
@@ -1373,7 +1454,8 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                                                         keyboardController?.hide()
                                                         focusManager.clearFocus()
                                                         dragPosInRoot = startRootPos
-                                                        dragSession = DragSession(DragSource.Folder(activeFolder.id, app), app)
+                                                        dragSession =
+                                                            DragSession(DragSource.Folder(activeFolder.id, app), app)
                                                     },
                                                     onDrag = { rootPos -> dragPosInRoot = rootPos },
                                                     onDragEnd = { finishDrag() },
@@ -1461,7 +1543,12 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.menu_wallpaper), style = MaterialTheme.typography.bodyLarge) },
+                    text = {
+                        Text(
+                            stringResource(R.string.menu_wallpaper),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    },
                     leadingIcon = {
                         Icon(
                             Icons.Default.Edit,
@@ -1476,7 +1563,12 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
                     onClick = { showMenu = false; openWallpaperPicker(ctx) },
                 )
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.menu_launcher_settings), style = MaterialTheme.typography.bodyLarge) },
+                    text = {
+                        Text(
+                            stringResource(R.string.menu_launcher_settings),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    },
                     leadingIcon = {
                         Icon(
                             Icons.Default.Settings,
@@ -1595,7 +1687,8 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             packs = repo.packs,
             onSelectOverride = { newVal ->
                 edit { st ->
-                    val next = if (newVal == null) st.customIcons - targetApp.key else st.customIcons + (targetApp.key to newVal)
+                    val next =
+                        if (newVal == null) st.customIcons - targetApp.key else st.customIcons + (targetApp.key to newVal)
                     st.copy(customIcons = next)
                 }
                 editingIconApp = null
@@ -1697,7 +1790,11 @@ private fun HomePage(
                         .padding(20.dp)
                         .clip(RoundedCornerShape(28.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.28f))
-                        .border(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.55f), RoundedCornerShape(28.dp)),
+                        .border(
+                            1.5.dp,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
+                            RoundedCornerShape(28.dp)
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -1710,177 +1807,199 @@ private fun HomePage(
                 }
             }
 
-        if (highlightedCell != null) {
-            val (hCol, hRow, inCenter) = highlightedCell
-            val isDraggingWidget = draggedHomeItem?.kind == ItemKind.WIDGET
-            val spanW = if (isDraggingWidget) draggedHomeItem!!.spanX else 1
-            val spanH = if (isDraggingWidget) draggedHomeItem!!.spanY else 1
-            val hasOccupant = !isDraggingWidget && pageItems.any {
-                it.id != draggedHomeItemId &&
-                    (it.kind == ItemKind.APP || it.kind == ItemKind.FOLDER) &&
-                    it.col == hCol && it.row == hRow
-            }
-            val shape = if (hasOccupant && inCenter) CircleShape else CellHighlightShape
-            val animHighlightX by animateDpAsState(
-                targetValue = cw * hCol,
-                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
-                label = "highlightX",
-            )
-            val animHighlightY by animateDpAsState(
-                targetValue = ch * hRow,
-                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
-                label = "highlightY",
-            )
-            Box(
-                Modifier
-                    .offset(animHighlightX, animHighlightY)
-                    .size(cw * spanW, ch * spanH)
-                    .padding(6.dp)
-                    .clip(shape)
-                    .background(
-                        if (hasOccupant && inCenter) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
-                        else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f)
-                    )
-                    .border(2.dp, MaterialTheme.colorScheme.primary, shape)
-            )
-        }
-
-        val density = LocalDensity.current
-        val cwPx = with(density) { cw.toPx() }
-        val chPx = with(density) { ch.toPx() }
-        pageItems.forEach { item ->
-            key(item.id) {
-                val targetXPx = cwPx * item.col
-                val targetYPx = chPx * item.row
-                val animXPx = remember { Animatable(targetXPx) }
-                val animYPx = remember { Animatable(targetYPx) }
-                var lastCol by remember { mutableStateOf(item.col) }
-                var lastRow by remember { mutableStateOf(item.row) }
-                LaunchedEffect(targetXPx, item.col) {
-                    if (item.col != lastCol) {
-                        lastCol = item.col
-                        animXPx.animateTo(
-                            targetXPx,
-                            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 460f),
-                        )
-                    } else if (animXPx.value != targetXPx) {
-                        animXPx.snapTo(targetXPx)
-                    }
+            if (highlightedCell != null) {
+                val (hCol, hRow, inCenter) = highlightedCell
+                val isDraggingWidget = draggedHomeItem?.kind == ItemKind.WIDGET
+                val spanW = if (isDraggingWidget) draggedHomeItem!!.spanX else 1
+                val spanH = if (isDraggingWidget) draggedHomeItem!!.spanY else 1
+                val hasOccupant = !isDraggingWidget && pageItems.any {
+                    it.id != draggedHomeItemId &&
+                            (it.kind == ItemKind.APP || it.kind == ItemKind.FOLDER) &&
+                            it.col == hCol && it.row == hRow
                 }
-                LaunchedEffect(targetYPx, item.row) {
-                    if (item.row != lastRow) {
-                        lastRow = item.row
-                        animYPx.animateTo(
-                            targetYPx,
-                            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 460f),
-                        )
-                    } else if (animYPx.value != targetYPx) {
-                        animYPx.snapTo(targetYPx)
-                    }
-                }
+                val shape = if (hasOccupant && inCenter) CircleShape else CellHighlightShape
+                val animHighlightX by animateDpAsState(
+                    targetValue = cw * hCol,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    ),
+                    label = "highlightX",
+                )
+                val animHighlightY by animateDpAsState(
+                    targetValue = ch * hRow,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    ),
+                    label = "highlightY",
+                )
                 Box(
                     Modifier
-                        .offset {
-                            IntOffset(animXPx.value.roundToInt(), animYPx.value.roundToInt())
-                        }
-                        .size(cw * item.spanX, ch * item.spanY)
-                        .padding(2.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    when (item.kind) {
-                        ItemKind.APP -> appMap[item.data]?.let { app ->
-                            AppIcon(
-                                app = app,
-                                badge = if (s.badgeNumbers) counts[app.pkg] ?: 0 else 0,
-                                showLabel = s.showHomeLabels,
-                                labelColor = Color.White,
-                                iconSize = homeIconSize,
-                                actionsProvider = { actionsFor(item, app) },
-                                onClick = { onLaunch(app) },
-                                modifier = Modifier.fillMaxWidth(),
-                                useHomeIcon = true,
-                                iconShape = s.iconShape,
-                                enableDrag = !s.lockDesktop,
-                                isBeingDragged = draggedHomeItemId == item.id,
-                                onPressHoldChange = onItemHoldChange,
-                                onDragStart = { startRootPos -> onStartItemDrag(item, app, startRootPos, Offset.Zero) },
-                                onDrag = onDragItem,
-                                onDragEnd = onEndItemDrag,
+                        .offset(animHighlightX, animHighlightY)
+                        .size(cw * spanW, ch * spanH)
+                        .padding(6.dp)
+                        .clip(shape)
+                        .background(
+                            if (hasOccupant && inCenter) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
+                            else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f)
+                        )
+                        .border(2.dp, MaterialTheme.colorScheme.primary, shape)
+                )
+            }
+
+            val density = LocalDensity.current
+            val cwPx = with(density) { cw.toPx() }
+            val chPx = with(density) { ch.toPx() }
+            pageItems.forEach { item ->
+                key(item.id) {
+                    val targetXPx = cwPx * item.col
+                    val targetYPx = chPx * item.row
+                    val animXPx = remember { Animatable(targetXPx) }
+                    val animYPx = remember { Animatable(targetYPx) }
+                    var lastCol by remember { mutableStateOf(item.col) }
+                    var lastRow by remember { mutableStateOf(item.row) }
+                    LaunchedEffect(targetXPx, item.col) {
+                        if (item.col != lastCol) {
+                            lastCol = item.col
+                            animXPx.animateTo(
+                                targetXPx,
+                                spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 460f),
                             )
+                        } else if (animXPx.value != targetXPx) {
+                            animXPx.snapTo(targetXPx)
                         }
-                        ItemKind.FOLDER -> {
-                            val payload = remember(item.data) { FolderPayload.decode(item.data) }
-                            val previewApps = remember(payload.apps, appMap) {
-                                payload.apps.mapNotNull { appMap[it] }
+                    }
+                    LaunchedEffect(targetYPx, item.row) {
+                        if (item.row != lastRow) {
+                            lastRow = item.row
+                            animYPx.animateTo(
+                                targetYPx,
+                                spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 460f),
+                            )
+                        } else if (animYPx.value != targetYPx) {
+                            animYPx.snapTo(targetYPx)
+                        }
+                    }
+                    Box(
+                        Modifier
+                            .offset {
+                                IntOffset(animXPx.value.roundToInt(), animYPx.value.roundToInt())
                             }
-                            val defaultName = stringResource(R.string.folder_default_name)
-                            FolderIcon(
-                                title = payload.title.ifBlank { defaultName },
-                                previewApps = previewApps,
-                                showLabel = s.showHomeLabels,
-                                labelColor = Color.White,
-                                iconSize = homeIconSize,
-                                useHomeIcon = true,
-                                enableDrag = !s.lockDesktop,
-                                isBeingDragged = draggedHomeItemId == item.id,
-                                onClick = { onOpenFolder(item) },
-                                onPressHoldChange = onItemHoldChange,
-                                onDragStart = { startRootPos -> onStartItemDrag(item, previewApps.firstOrNull(), startRootPos, Offset.Zero) },
-                                onDrag = onDragItem,
-                                onDragEnd = onEndItemDrag,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                        ItemKind.WIDGET -> item.data.toIntOrNull()?.let { id ->
-                            WidgetView(
-                                id = id,
-                                controller = widgets,
-                                isBeingDragged = draggedHomeItemId == item.id,
-                                onPressHoldChange = onItemHoldChange,
-                                onActivateResizeFrame = { onActivateWidgetResize(item) },
-                                onStartDrag = { startRootPos, touchOffset ->
-                                    onStartItemDrag(item, null, startRootPos, touchOffset)
-                                },
-                                onDrag = onDragItem,
-                                onEndDrag = onEndItemDrag,
-                                modifier = Modifier.fillMaxSize(),
-                            )
+                            .size(cw * item.spanX, ch * item.spanY)
+                            .padding(2.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        when (item.kind) {
+                            ItemKind.APP -> appMap[item.data]?.let { app ->
+                                AppIcon(
+                                    app = app,
+                                    badge = if (s.badgeNumbers) counts[app.pkg] ?: 0 else 0,
+                                    showLabel = s.showHomeLabels,
+                                    labelColor = Color.White,
+                                    iconSize = homeIconSize,
+                                    actionsProvider = { actionsFor(item, app) },
+                                    onClick = { onLaunch(app) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    useHomeIcon = true,
+                                    iconShape = s.iconShape,
+                                    enableDrag = !s.lockDesktop,
+                                    isBeingDragged = draggedHomeItemId == item.id,
+                                    onPressHoldChange = onItemHoldChange,
+                                    onDragStart = { startRootPos ->
+                                        onStartItemDrag(
+                                            item,
+                                            app,
+                                            startRootPos,
+                                            Offset.Zero
+                                        )
+                                    },
+                                    onDrag = onDragItem,
+                                    onDragEnd = onEndItemDrag,
+                                )
+                            }
+
+                            ItemKind.FOLDER -> {
+                                val payload = remember(item.data) { FolderPayload.decode(item.data) }
+                                val previewApps = remember(payload.apps, appMap) {
+                                    payload.apps.mapNotNull { appMap[it] }
+                                }
+                                val defaultName = stringResource(R.string.folder_default_name)
+                                FolderIcon(
+                                    title = payload.title.ifBlank { defaultName },
+                                    previewApps = previewApps,
+                                    showLabel = s.showHomeLabels,
+                                    labelColor = Color.White,
+                                    iconSize = homeIconSize,
+                                    useHomeIcon = true,
+                                    enableDrag = !s.lockDesktop,
+                                    isBeingDragged = draggedHomeItemId == item.id,
+                                    onClick = { onOpenFolder(item) },
+                                    onPressHoldChange = onItemHoldChange,
+                                    onDragStart = { startRootPos ->
+                                        onStartItemDrag(
+                                            item,
+                                            previewApps.firstOrNull(),
+                                            startRootPos,
+                                            Offset.Zero
+                                        )
+                                    },
+                                    onDrag = onDragItem,
+                                    onDragEnd = onEndItemDrag,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+
+                            ItemKind.WIDGET -> item.data.toIntOrNull()?.let { id ->
+                                WidgetView(
+                                    id = id,
+                                    controller = widgets,
+                                    isBeingDragged = draggedHomeItemId == item.id,
+                                    onPressHoldChange = onItemHoldChange,
+                                    onActivateResizeFrame = { onActivateWidgetResize(item) },
+                                    onStartDrag = { startRootPos, touchOffset ->
+                                        onStartItemDrag(item, null, startRootPos, touchOffset)
+                                    },
+                                    onDrag = onDragItem,
+                                    onEndDrag = onEndItemDrag,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        val resizingWidget = pageItems.firstOrNull { it.id == resizingWidgetId && it.kind == ItemKind.WIDGET }
-        if (resizingWidget != null && !s.lockDesktop) {
-            val appWidgetId = resizingWidget.data.toIntOrNull()
-            val canReconfigure = remember(appWidgetId) {
-                appWidgetId != null && widgets.canReconfigure(appWidgetId)
+            val resizingWidget = pageItems.firstOrNull { it.id == resizingWidgetId && it.kind == ItemKind.WIDGET }
+            if (resizingWidget != null && !s.lockDesktop) {
+                val appWidgetId = resizingWidget.data.toIntOrNull()
+                val canReconfigure = remember(appWidgetId) {
+                    appWidgetId != null && widgets.canReconfigure(appWidgetId)
+                }
+                TrebuchetWidgetResizeFrame(
+                    item = resizingWidget,
+                    cw = cw,
+                    ch = ch,
+                    homeCols = homeCols,
+                    homeRows = homeRows,
+                    gridOriginInRoot = gridOriginInRoot,
+                    canReconfigure = canReconfigure,
+                    onReconfigure = {
+                        if (appWidgetId != null) widgets.reconfigure(appWidgetId)
+                    },
+                    onRemove = { onRemoveWidget(resizingWidget) },
+                    onResize = { newCol, newRow, newSpanX, newSpanY ->
+                        onResizeWidget(resizingWidget, newCol, newRow, newSpanX, newSpanY)
+                    },
+                    onPressHoldChange = onItemHoldChange,
+                    onStartMoveDrag = { startRootPos, touchOffset ->
+                        onStartItemDrag(resizingWidget, null, startRootPos, touchOffset)
+                    },
+                    onMoveDrag = onDragItem,
+                    onEndMoveDrag = onEndItemDrag,
+                    onDismiss = onDismissWidgetResize,
+                )
             }
-            TrebuchetWidgetResizeFrame(
-                item = resizingWidget,
-                cw = cw,
-                ch = ch,
-                homeCols = homeCols,
-                homeRows = homeRows,
-                gridOriginInRoot = gridOriginInRoot,
-                canReconfigure = canReconfigure,
-                onReconfigure = {
-                    if (appWidgetId != null) widgets.reconfigure(appWidgetId)
-                },
-                onRemove = { onRemoveWidget(resizingWidget) },
-                onResize = { newCol, newRow, newSpanX, newSpanY ->
-                    onResizeWidget(resizingWidget, newCol, newRow, newSpanX, newSpanY)
-                },
-                onPressHoldChange = onItemHoldChange,
-                onStartMoveDrag = { startRootPos, touchOffset ->
-                    onStartItemDrag(resizingWidget, null, startRootPos, touchOffset)
-                },
-                onMoveDrag = onDragItem,
-                onEndMoveDrag = onEndItemDrag,
-                onDismiss = onDismissWidgetResize,
-            )
-        }
         }
     }
 }

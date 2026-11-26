@@ -170,30 +170,43 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
         runCatching { context.startActivity(i) }
     }
 
-    fun getShortcuts(pkg: String): List<AppShortcut> = runCatching {
+    fun getShortcuts(pkg: String, user: UserHandle? = null): List<AppShortcut> = runCatching {
         if (!launcherApps.hasShortcutHostPermission()) return emptyList()
+        val target = user ?: Process.myUserHandle()
         val q = LauncherApps.ShortcutQuery().apply {
             setPackage(pkg)
             setQueryFlags(
                 LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
-                    LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST
+                        LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
+                        LauncherApps.ShortcutQuery.FLAG_MATCH_CACHED
             )
         }
-        launcherApps.getShortcuts(q, Process.myUserHandle())
+        launcherApps.getShortcuts(q, target)
             ?.filter { it.isEnabled }
             ?.sortedBy { it.rank }
             ?.take(4)
             ?.mapNotNull { info ->
                 val label = (info.shortLabel ?: info.longLabel)?.toString()?.takeIf { it.isNotBlank() }
                     ?: return@mapNotNull null
-                AppShortcut(info.id, info.`package`, label)
+                val icon = runCatching {
+                    launcherApps.getShortcutIconDrawable(info, ctx.resources.displayMetrics.densityDpi)
+                        ?.toBitmap(SHORTCUT_ICON_PX, SHORTCUT_ICON_PX)
+                        ?.asImageBitmap()
+                }.getOrNull()
+                AppShortcut(info.id, info.`package`, label, target, icon)
             }
             ?: emptyList()
     }.getOrDefault(emptyList())
 
     fun launchShortcut(shortcut: AppShortcut) {
         runCatching {
-            launcherApps.startShortcut(shortcut.pkg, shortcut.id, null, null, Process.myUserHandle())
+            launcherApps.startShortcut(
+                shortcut.pkg,
+                shortcut.id,
+                null,
+                null,
+                shortcut.user ?: Process.myUserHandle(),
+            )
         }
     }
 
@@ -252,12 +265,14 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
         val daySuffix = if (c.pack != null) "_d${Calendar.getInstance().get(Calendar.DAY_OF_MONTH)}" else ""
         val ovSuffix = override?.let { "_ov_${it.hashCode()}" } ?: ""
         val cfgKey = "${CACHE_VERSION}_${c.pack ?: "sys"}_${c.themed}_${c.dark}_${c.shape.name}$daySuffix$ovSuffix"
-        val baseId = "${info.componentName.packageName}_${info.componentName.className}_${user.hashCode()}_${cfgKey.hashCode()}"
+        val baseId =
+            "${info.componentName.packageName}_${info.componentName.className}_${user.hashCode()}_${cfgKey.hashCode()}"
         val normalFile = File(cacheDir, "${baseId}_n.png")
         val homeFile = File(cacheDir, "${baseId}_h.png")
 
         val cachedNormal = decodeCached(normalFile)
-        val cachedHome = if (c.themed && (c.pack == null || override == "SYSTEM")) decodeCached(homeFile) else cachedNormal
+        val cachedHome =
+            if (c.themed && (c.pack == null || override == "SYSTEM")) decodeCached(homeFile) else cachedNormal
         if (cachedNormal != null && cachedHome != null) {
             return cachedNormal to cachedHome
         }
@@ -314,6 +329,7 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
                 val drName = override.substringAfter('|')
                 packs.loadDrawableBitmap(packPkg, drName, ICON_PX)
             }
+
             else -> null
         }
         val packBitmap = when {
@@ -344,7 +360,10 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
             if (packBitmap == null && c.themed && systemDrawable is AdaptiveIconDrawable) {
                 val rawThemed = themed(systemDrawable, c.dark)?.toBitmap(ICON_PX, ICON_PX)
                 if (rawThemed != null) {
-                    val normalizedThemed = if (c.pack != null && override != "SYSTEM") normalizeOpticalSize(rawThemed, targetFillRatio = 0.80f) else rawThemed
+                    val normalizedThemed = if (c.pack != null && override != "SYSTEM") normalizeOpticalSize(
+                        rawThemed,
+                        targetFillRatio = 0.80f
+                    ) else rawThemed
                     if (normalizedThemed !== rawThemed) rawThemed.recycle()
                     val clipped = clipBitmapToShape(normalizedThemed, c.shape)
                     if (clipped !== normalizedThemed) normalizedThemed.recycle()
@@ -414,7 +433,16 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
                 IconShape.ROUNDED -> addRoundRect(0f, 0f, w, h, w * 0.20f, h * 0.20f, Path.Direction.CW)
                 IconShape.TEARDROP -> addRoundRect(
                     RectF(0f, 0f, w, h),
-                    floatArrayOf(w * 0.50f, h * 0.50f, w * 0.50f, h * 0.50f, w * 0.14f, h * 0.14f, w * 0.50f, h * 0.50f),
+                    floatArrayOf(
+                        w * 0.50f,
+                        h * 0.50f,
+                        w * 0.50f,
+                        h * 0.50f,
+                        w * 0.14f,
+                        h * 0.14f,
+                        w * 0.50f,
+                        h * 0.50f
+                    ),
                     Path.Direction.CW,
                 )
             }
@@ -434,6 +462,7 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
 
     private companion object {
         const val ICON_PX = 192
+        const val SHORTCUT_ICON_PX = 96
         const val CACHE_VERSION = "v3"
     }
 }

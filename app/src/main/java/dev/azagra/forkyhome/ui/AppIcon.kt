@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -83,6 +84,7 @@ data class MenuAction(
     val label: String,
     val icon: ImageVector? = null,
     val isShortcut: Boolean = false,
+    val iconBitmap: ImageBitmap? = null,
     val onClick: () -> Unit,
 )
 
@@ -393,7 +395,15 @@ fun AppActionsMenu(
                             overflow = TextOverflow.Ellipsis,
                         )
                     },
-                    leadingIcon = a.icon?.let { ic ->
+                    leadingIcon = if (a.iconBitmap != null) {
+                        {
+                            Image(
+                                bitmap = a.iconBitmap,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                    } else a.icon?.let { ic ->
                         {
                             Icon(
                                 imageVector = ic,
