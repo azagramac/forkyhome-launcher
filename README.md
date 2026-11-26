@@ -116,12 +116,12 @@ Performance measurements obtained using:
 adb shell dumpsys gfxinfo dev.azagra.forkyhome
 ```
 
-| Device | Android | Frames | Janky Frames | UI p50 | UI p90 | UI p95 | UI p99 | Frames ≤ 8ms | GPU p50 / p99 | Slow Bitmap Uploads |
+| Device | Android | Rom |Frames | Janky Frames | UI p50 | UI p90 | UI p95 | UI p99 | Frames ≤ 8ms | GPU p50 / p99 | Slow Bitmap Uploads |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **OnePlus 8T** | Android 14 | 1,854 | 2.54% (47) | 6ms | 9ms | 13ms | 40ms | 88.9% | 2ms / 6ms | 0 |
-| **Nothing Phone (2)** | Android 16 | 3,833 | 0.91% (35) | 5ms | 8ms | 9ms | 15ms | 93.7% | 3ms / 6ms | 0 |
-| **Google Pixel 10 Pro XL** | Android 16 | 3,768 | 0.89% (31) | 4ms | 8ms | 8ms | 12ms | 94.5% | 2ms / 5ms | 0 |
-| **Nothing Phone (2a)** | Android 16 | 4,241 | 0.09% (4) | 6ms | 10ms | 13ms | 36ms | 86.1% | 3ms / 6ms | 0 |
+| **OnePlus 8T** | Android 17 | LineageOS 24.0 | 1,854 | 2.54% (47) | 6ms | 9ms | 13ms | 40ms | 88.9% | 2ms / 6ms | 0 |
+| **Nothing Phone (2)** | Android 16 | LineageOS 23.2 | 3,833 | 0.91% (35) | 5ms | 8ms | 9ms | 15ms | 93.7% | 3ms / 6ms | 0 |
+| **Google Pixel 10 Pro XL** | Android 17 | Stock | 3,768 | 0.89% (31) | 4ms | 8ms | 8ms | 12ms | 94.5% | 2ms / 5ms | 0 |
+| **Nothing Phone (2a)** | Android 17 | NothingOS 5 | 4,241 | 0.09% (4) | 6ms | 10ms | 13ms | 36ms | 86.1% | 3ms / 6ms | 0 |
 
 *Measurements from release builds running OxygenOS 14 and Nothing OS 4.1, respectively.*
 

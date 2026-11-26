@@ -6,7 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.view.View
+import android.view.MotionEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,6 +29,12 @@ class MainActivity : ComponentActivity() {
     private lateinit var container: Container
     private lateinit var widgets: WidgetController
     private var isStopped = false
+    private var highModeId = 0
+    private val restoreRefreshRate = Runnable { setPreferredDisplayMode(0) }
+
+    private companion object {
+        const val HIGH_REFRESH_HOLD_MS = 2000L
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,10 +73,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        if (isStopped) {
-            isStopped = false
-            container.revealEvents.tryEmit(true)
-        }
+        isStopped = false
         widgets.host.startListening()
     }
 
@@ -82,26 +85,46 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onPause() {
+        window.decorView.removeCallbacks(restoreRefreshRate)
+        setPreferredDisplayMode(0)
+        super.onPause()
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (highModeId != 0) {
+            val decor = window.decorView
+            decor.removeCallbacks(restoreRefreshRate)
+            setPreferredDisplayMode(highModeId)
+            decor.postDelayed(restoreRefreshRate, HIGH_REFRESH_HOLD_MS)
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun setPreferredDisplayMode(modeId: Int) {
+        val attrs = window.attributes
+        if (attrs.preferredDisplayModeId != modeId) {
+            attrs.preferredDisplayModeId = modeId
+            window.attributes = attrs
+        }
+    }
+
+    // La frecuencia alta solo se fuerza mientras el usuario interactúa; en reposo se
+    // devuelve el control al sistema para que el panel pueda bajar de Hz y ahorrar batería.
     private fun applyHighRefreshRate() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             if (!window.frameRateBoostOnTouchEnabled) {
                 window.frameRateBoostOnTouchEnabled = true
             }
-            window.decorView.setRequestedFrameRate(View.REQUESTED_FRAME_RATE_CATEGORY_HIGH)
         }
-        display?.let { d ->
+        highModeId = display?.let { d ->
             val cur = d.mode
             d.supportedModes
                 .filter { it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight }
                 .maxByOrNull { it.refreshRate }
-                ?.let { highMode ->
-                    val attrs = window.attributes
-                    if (highMode.modeId != cur.modeId && attrs.preferredDisplayModeId != highMode.modeId) {
-                        attrs.preferredDisplayModeId = highMode.modeId
-                        window.attributes = attrs
-                    }
-                }
-        }
+                ?.modeId
+        } ?: 0
+        setPreferredDisplayMode(0)
     }
 
     private fun syncLauncherDrawerIconVisibility() {
@@ -133,7 +156,6 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         isStopped = true
-        container.revealEvents.tryEmit(false)
         widgets.host.stopListening()
     }
 

@@ -51,6 +51,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.azagra.forkyhome.data.LauncherSettings
 import dev.azagra.forkyhome.data.SmartspaceTimeFormat
 import java.text.SimpleDateFormat
@@ -78,7 +81,8 @@ fun AtAGlanceHeader(
     var batteryPct by remember { mutableIntStateOf(100) }
     var isCharging by remember { mutableStateOf(false) }
 
-    DisposableEffect(ctx) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(ctx, lifecycleOwner) {
         fun refreshState(action: String? = null, batteryIntent: Intent? = null) {
             if (action == null || action != Intent.ACTION_BATTERY_CHANGED) {
                 nowMillis = System.currentTimeMillis()
@@ -106,8 +110,6 @@ fun AtAGlanceHeader(
             }
         }
 
-        refreshState()
-
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 refreshState(
@@ -124,9 +126,35 @@ fun AtAGlanceHeader(
             addAction(Intent.ACTION_BATTERY_CHANGED)
             addAction(AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED)
         }
-        ctx.registerReceiver(receiver, filter)
+        var registered = false
+        fun register() {
+            if (!registered) {
+                refreshState()
+                ctx.registerReceiver(receiver, filter)
+                registered = true
+            }
+        }
+        fun unregister() {
+            if (registered) {
+                runCatching { ctx.unregisterReceiver(receiver) }
+                registered = false
+            }
+        }
+
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> register()
+                Lifecycle.Event.ON_STOP -> unregister()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            register()
+        }
         onDispose {
-            runCatching { ctx.unregisterReceiver(receiver) }
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            unregister()
         }
     }
 
