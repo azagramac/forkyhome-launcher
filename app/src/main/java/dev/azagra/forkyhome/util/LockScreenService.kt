@@ -51,6 +51,10 @@ class LockScreenService : AccessibilityService() {
                 .any { it == expected }
         }
 
+        fun disableIfConnected() {
+            runCatching { instance?.disableSelf() }
+        }
+
         fun lockScreen(ctx: Context): Boolean {
             val svc = instance
             if (svc != null && svc.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)) {

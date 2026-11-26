@@ -32,6 +32,7 @@ import java.util.Calendar
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +57,108 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
     private var config = IconConfig()
     private var job: Job? = null
 
+    @Volatile
+    private var uiVisible: Boolean = true
+    private val pendingLock = Any()
+    private var pendingFullRefresh = false
+    private val pendingRemoved = HashSet<String>()
+    private val pendingRefreshed = HashMap<String, Boolean>()
+    private var flushJob: Job? = null
+
+    fun setUiVisible(visible: Boolean) {
+        uiVisible = visible
+        if (!visible) {
+            flushJob?.cancel()
+            return
+        }
+        val hasPending = synchronized(pendingLock) {
+            pendingFullRefresh || pendingRemoved.isNotEmpty() || pendingRefreshed.isNotEmpty()
+        }
+        if (!hasPending) return
+
+        flushJob?.cancel()
+        flushJob = scope.launch(Dispatchers.IO) {
+            // Deja terminar primero la animación de retorno al escritorio a 120 Hz sin competir por CPU/GPU.
+            delay(320L)
+            if (!uiVisible) return@launch
+
+            val doFull: Boolean
+            val toRemove: Set<String>
+            val toRefresh: Map<String, Boolean>
+            synchronized(pendingLock) {
+                doFull = pendingFullRefresh
+                pendingFullRefresh = false
+                toRemove = HashSet(pendingRemoved)
+                pendingRemoved.clear()
+                toRefresh = HashMap(pendingRefreshed)
+                pendingRefreshed.clear()
+            }
+
+            if (doFull) {
+                val c = config
+                val list = load(c)
+                ensureActive()
+                _apps.value = list
+                return@launch
+            }
+
+            applyBatchChanges(toRemove, toRefresh)
+        }
+    }
+
+    private suspend fun applyBatchChanges(
+        toRemove: Set<String>,
+        toRefresh: Map<String, Boolean>,
+    ) {
+        val c = config
+        var working = _apps.value
+        var anyChanged = false
+
+        if (toRemove.isNotEmpty()) {
+            toRemove.forEach { invalidatePackageCache(it) }
+            val afterRemove = working.filter { it.pkg !in toRemove }
+            if (afterRemove.size != working.size) {
+                working = afterRemove
+                anyChanged = true
+            }
+        }
+
+        if (toRefresh.isNotEmpty()) {
+            val profiles = launcherApps.profiles.ifEmpty { listOf(Process.myUserHandle()) }
+            var packLoaded = false
+            for ((pkg, invalidateCache) in toRefresh) {
+                val rawActivities = profiles.flatMap { user ->
+                    runCatching { launcherApps.getActivityList(pkg, user) }.getOrDefault(emptyList())
+                        .filter { it.componentName.packageName != ctx.packageName }
+                        .map { info -> user to info }
+                }
+                val currentForPkg = working.filter { it.pkg == pkg }
+                if (!invalidateCache) {
+                    val sameSignature = currentForPkg.size == rawActivities.size &&
+                        currentForPkg.map { Triple(it.key, it.label, it.user) } ==
+                        rawActivities.map { (u, info) ->
+                            Triple(info.componentName.flattenToString(), info.label.toString(), u)
+                        }
+                    if (sameSignature) continue
+                }
+                invalidatePackageCache(pkg)
+                if (!packLoaded) {
+                    packs.load(c.pack)
+                    packLoaded = true
+                }
+                val updatedForPkg = rawActivities.map { (user, info) -> buildAppInfo(info, user, c) }
+                working = working.filter { it.pkg != pkg } + updatedForPkg
+                anyChanged = true
+            }
+        }
+
+        if (anyChanged) {
+            val collator = Collator.getInstance()
+            val sorted = working.sortedWith { a, b -> collator.compare(a.label, b.label) }
+            _apps.value = sorted
+        }
+    }
+
     fun start() {
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
@@ -68,11 +171,29 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
                 val action = i?.action ?: return
                 val pkg = i.data?.schemeSpecificPart
                 val replacing = i.getBooleanExtra(Intent.EXTRA_REPLACING, false)
+                val shouldInvalidate = action != Intent.ACTION_PACKAGE_CHANGED || replacing
+                if (!uiVisible) {
+                    synchronized(pendingLock) {
+                        if (pkg == null) {
+                            pendingFullRefresh = true
+                        } else if (action == Intent.ACTION_PACKAGE_REMOVED && !replacing) {
+                            pendingRefreshed.remove(pkg)
+                            pendingRemoved.add(pkg)
+                        } else {
+                            pendingRemoved.remove(pkg)
+                            pendingRefreshed[pkg] = (pendingRefreshed[pkg] == true) || shouldInvalidate
+                        }
+                    }
+                    if (action == Intent.ACTION_PACKAGE_ADDED && !replacing && pkg != null) {
+                        _newPackages.tryEmit(pkg)
+                    }
+                    return
+                }
                 if (pkg != null) {
                     if (action == Intent.ACTION_PACKAGE_REMOVED && !replacing) {
                         removePackage(pkg)
                     } else {
-                        refreshPackage(pkg)
+                        refreshPackage(pkg, invalidateCache = shouldInvalidate)
                     }
                 } else {
                     refresh()
@@ -90,7 +211,13 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
         }
         ContextCompat.registerReceiver(ctx, object : BroadcastReceiver() {
             override fun onReceive(c: Context?, i: Intent?) {
-                if (config.pack != null) refresh()
+                if (config.pack != null) {
+                    if (uiVisible) {
+                        refresh()
+                    } else {
+                        synchronized(pendingLock) { pendingFullRefresh = true }
+                    }
+                }
             }
         }, dateFilter, ContextCompat.RECEIVER_EXPORTED)
 
@@ -124,17 +251,27 @@ class AppRepository(private val ctx: Context, private val scope: CoroutineScope)
         }
     }
 
-    private fun refreshPackage(pkg: String) {
+    private fun refreshPackage(pkg: String, invalidateCache: Boolean = true) {
         val c = config
         scope.launch(Dispatchers.IO) {
-            invalidatePackageCache(pkg)
-            packs.load(c.pack)
             val profiles = launcherApps.profiles.ifEmpty { listOf(Process.myUserHandle()) }
-            val updatedForPkg = profiles.flatMap { user ->
+            val rawActivities = profiles.flatMap { user ->
                 runCatching { launcherApps.getActivityList(pkg, user) }.getOrDefault(emptyList())
                     .filter { it.componentName.packageName != ctx.packageName }
-                    .map { info -> buildAppInfo(info, user, c) }
+                    .map { info -> user to info }
             }
+            val currentForPkg = _apps.value.filter { it.pkg == pkg }
+            if (!invalidateCache) {
+                val sameSignature = currentForPkg.size == rawActivities.size &&
+                    currentForPkg.map { Triple(it.key, it.label, it.user) } ==
+                    rawActivities.map { (u, info) ->
+                        Triple(info.componentName.flattenToString(), info.label.toString(), u)
+                    }
+                if (sameSignature) return@launch
+            }
+            invalidatePackageCache(pkg)
+            packs.load(c.pack)
+            val updatedForPkg = rawActivities.map { (user, info) -> buildAppInfo(info, user, c) }
             val collator = Collator.getInstance()
             val merged = (_apps.value.filter { it.pkg != pkg } + updatedForPkg)
                 .sortedWith { a, b -> collator.compare(a.label, b.label) }

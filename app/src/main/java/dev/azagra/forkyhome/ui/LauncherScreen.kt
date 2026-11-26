@@ -434,12 +434,17 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
     val homeRows = s.homeRows.coerceIn(4, 7)
     val dockMarginPx = with(density) { 20.dp.toPx() }
 
+    LaunchedEffect(s.badgeNumbers) {
+        NotificationCounter.syncBindState(ctx, s.badgeNumbers)
+    }
     LaunchedEffect(s.iconPack, s.themedIcons, dark, s.iconShape, s.customIcons) {
         repo.configure(IconConfig(s.iconPack, s.themedIcons, dark, s.iconShape, s.customIcons))
     }
-    LaunchedEffect(apps) {
-        if (apps.isNotEmpty()) store.update {
-            if (it.dockInit) it else it.copy(dock = repo.defaultDock(apps), dockInit = true)
+    LaunchedEffect(s.dockInit, apps) {
+        if (!s.dockInit && apps.isNotEmpty()) {
+            store.update {
+                if (it.dockInit) it else it.copy(dock = repo.defaultDock(apps), dockInit = true)
+            }
         }
     }
     LaunchedEffect(s.autoAddNewApps, s.lockDesktop) {

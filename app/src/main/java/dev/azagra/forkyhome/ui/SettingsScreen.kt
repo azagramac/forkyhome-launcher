@@ -157,7 +157,10 @@ fun SettingsScreen(
     }
 
     val hasNotifService = remember {
-        ctx.packageManager.resolveService(Intent(ctx, NotificationCounter::class.java), 0) != null
+        ctx.packageManager.resolveService(
+            Intent(ctx, NotificationCounter::class.java),
+            PackageManager.MATCH_DISABLED_COMPONENTS,
+        ) != null
     }
     var notifEnabled by remember { mutableStateOf(notificationAccessGranted(ctx)) }
     var accessibilityEnabled by remember { mutableStateOf(LockScreenService.isEnabled(ctx)) }
@@ -167,7 +170,11 @@ fun SettingsScreen(
         )
     }
     LifecycleResumeEffect(Unit) {
-        notifEnabled = notificationAccessGranted(ctx)
+        val granted = notificationAccessGranted(ctx)
+        notifEnabled = granted
+        if (granted && s.badgeNumbers) {
+            NotificationCounter.syncBindState(ctx, true)
+        }
         accessibilityEnabled = LockScreenService.isEnabled(ctx)
         calendarPermGranted =
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
@@ -465,7 +472,10 @@ fun SettingsScreen(
                                         title = stringResource(R.string.settings_badge_numbers),
                                         subtitle = stringResource(R.string.settings_badge_numbers_desc),
                                         checked = s.badgeNumbers,
-                                        onChecked = { v -> onChange { it.copy(badgeNumbers = v) } },
+                                        onChecked = { v ->
+                                            onChange { it.copy(badgeNumbers = v) }
+                                            NotificationCounter.syncBindState(ctx, v)
+                                        },
                                     )
                                     if (!notifEnabled) {
                                         FilledTonalButton(
@@ -805,7 +815,9 @@ fun SettingsScreen(
                                     checked = s.doubleTapToSleep,
                                     onChecked = { v ->
                                         onChange { it.copy(doubleTapToSleep = v) }
-                                        if (v && !accessibilityEnabled) {
+                                        if (!v) {
+                                            LockScreenService.disableIfConnected()
+                                        } else if (!accessibilityEnabled) {
                                             accessibilityDisclosureDialog = true
                                         }
                                     },

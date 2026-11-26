@@ -19,6 +19,7 @@ import dev.azagra.forkyhome.data.HOME_COLS
 import dev.azagra.forkyhome.data.HOME_ROWS
 import dev.azagra.forkyhome.data.ItemKind
 import dev.azagra.forkyhome.data.LauncherSettings
+import dev.azagra.forkyhome.notif.NotificationCounter
 import dev.azagra.forkyhome.ui.LauncherScreen
 import dev.azagra.forkyhome.ui.LauncherTheme
 import dev.azagra.forkyhome.widgets.WidgetController
@@ -76,6 +77,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        NotificationCounter.setUiVisible(true)
+        container.apps.setUiVisible(true)
         widgets.host.startListening()
     }
 
@@ -161,6 +164,8 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         wasStopped = true
+        NotificationCounter.setUiVisible(false)
+        container.apps.setUiVisible(false)
         widgets.host.stopListening()
     }
 
