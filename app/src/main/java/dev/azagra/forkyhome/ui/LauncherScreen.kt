@@ -13,7 +13,6 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -452,30 +451,6 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             }
         }
     }
-    val revealProgress = remember { Animatable(1f) }
-    val emphasizedDecelerate = remember { CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f) }
-    LaunchedEffect(Unit) {
-        var animJob: kotlinx.coroutines.Job? = null
-        container.revealEvents.collect { show ->
-            animJob?.cancel()
-            if (!show) {
-                revealProgress.snapTo(0f)
-            } else {
-                if (revealProgress.value > 0.99f) {
-                    revealProgress.snapTo(0f)
-                }
-                animJob = launch {
-                    revealProgress.animateTo(
-                        targetValue = 1f,
-                        animationSpec = tween(
-                            durationMillis = 240,
-                            easing = emphasizedDecelerate,
-                        ),
-                    )
-                }
-            }
-        }
-    }
     LaunchedEffect(pagerState.currentPage) { container.currentPage = pagerState.currentPage }
     LaunchedEffect(Unit) {
         container.homeEvents.collect { animate ->
@@ -487,7 +462,7 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             dragSession = null
             isHoldingItem = false
             if (animate) {
-                if (drawer.isOpen) drawer.animateTo(0f) else pagerState.animateScrollToPage(0)
+                if (drawer.isOpen) drawer.animateTo(0f) else if (pagerState.currentPage != 0) pagerState.animateScrollToPage(0)
             } else {
                 // Returning from another app: snap immediately so the user doesn't see
                 // the drawer/pager closing animation on top of the system's app-exit transition.
@@ -994,19 +969,17 @@ fun LauncherScreen(s: LauncherSettings, widgets: WidgetController, container: Co
             Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    compositingStrategy = CompositingStrategy.ModulateAlpha
                     val p = drawer.progress.coerceIn(0f, 1f)
-                    val r = revealProgress.value.coerceIn(0f, 1f)
-                    val revealScale = 0.94f + 0.06f * r
-                    val revealAlpha = 0.2f + 0.8f * r
                     if (p <= 0.001f) {
-                        alpha = revealAlpha
-                        scaleX = revealScale
-                        scaleY = revealScale
+                        compositingStrategy = CompositingStrategy.Auto
+                        alpha = 1f
+                        scaleX = 1f
+                        scaleY = 1f
                         translationY = 0f
                     } else {
-                        alpha = (1f - p * 1.1f).coerceIn(0f, 1f) * revealAlpha
-                        val sScale = (1f - 0.04f * p) * revealScale
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                        alpha = (1f - p * 1.1f).coerceIn(0f, 1f)
+                        val sScale = 1f - 0.04f * p
                         scaleX = sScale
                         scaleY = sScale
                         translationY = -p * 24.dp.toPx()

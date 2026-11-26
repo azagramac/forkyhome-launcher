@@ -36,12 +36,20 @@ class DrawerState(private val scope: CoroutineScope) {
     }
 
     fun settle(velocity: Float) {
-        val threshold = if (startProgress < 0.5f) 0.25f else 0.75f
-        val target = when {
-            velocity > 0.22f -> 1f
-            velocity < -0.22f -> 0f
-            progress > threshold -> 1f
-            else -> 0f
+        val target = if (startProgress < 0.5f) {
+            when {
+                velocity < -0.25f -> 0f
+                velocity > 0.08f -> 1f
+                progress > 0.10f -> 1f
+                else -> 0f
+            }
+        } else {
+            when {
+                velocity > 0.25f -> 1f
+                velocity < -0.08f -> 0f
+                progress < 0.88f -> 0f
+                else -> 1f
+            }
         }
         animateTo(target, velocity)
     }
