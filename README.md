@@ -123,8 +123,6 @@ adb shell dumpsys gfxinfo dev.azagra.forkyhome
 | **Google Pixel 10 Pro XL** | Android 17 | Stock | 3,768 | 0.89% (31) | 4ms | 8ms | 8ms | 12ms | 94.5% | 2ms / 5ms | 0 |
 | **Nothing Phone (2a)** | Android 17 | NothingOS 5 | 4,241 | 0.09% (4) | 6ms | 10ms | 13ms | 36ms | 86.1% | 3ms / 6ms | 0 |
 
-*Measurements from release builds running OxygenOS 14 and Nothing OS 4.1, respectively.*
-
 ### Native Android Integration
 
 - Application launching through `LauncherApps.startMainActivity`.

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.MotionEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -28,7 +29,9 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var container: Container
     private lateinit var widgets: WidgetController
-    private var isStopped = false
+    private var wasStopped = false
+    private var pausedAtMs = 0L
+    private var lastAppReturnMs = 0L
     private var highModeId = 0
     private val restoreRefreshRate = Runnable { setPreferredDisplayMode(0) }
 
@@ -73,12 +76,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        isStopped = false
         widgets.host.startListening()
     }
 
     override fun onResume() {
         super.onResume()
+        wasStopped = false
+        pausedAtMs = 0L
         applyHighRefreshRate()
         lifecycleScope.launch(Dispatchers.IO) {
             syncLauncherDrawerIconVisibility()
@@ -86,6 +90,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        pausedAtMs = SystemClock.uptimeMillis()
         window.decorView.removeCallbacks(restoreRefreshRate)
         setPreferredDisplayMode(0)
         super.onPause()
@@ -155,13 +160,23 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        isStopped = true
+        wasStopped = true
         widgets.host.stopListening()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.action == Intent.ACTION_MAIN) container.homeEvents.tryEmit(!isStopped)
+        if (intent.action == Intent.ACTION_MAIN) {
+            val now = SystemClock.uptimeMillis()
+            val broughtToFront = (intent.flags and Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT) != 0
+            val pausedByOverlay = pausedAtMs != 0L && (now - pausedAtMs) > 250L
+            val justReturned = (now - lastAppReturnMs) < 450L
+            val wasAlreadyOnHome = !wasStopped && !broughtToFront && !pausedByOverlay && !justReturned
+            if (!wasAlreadyOnHome) {
+                lastAppReturnMs = now
+            }
+            container.homeEvents.tryEmit(wasAlreadyOnHome)
+        }
     }
 
     @Deprecated("Necesario para AppWidgetHost.startAppWidgetConfigureActivityForResult")
